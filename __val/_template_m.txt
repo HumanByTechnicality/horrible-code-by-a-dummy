@@ -1,0 +1,52 @@
+//main-line animation
+framenum:-1
+frameorder:0x-1
+
+input:0
+
+//movement data
+startaltitude:0
+endaltitude:0
+movement:0x0,0
+
+//other data
+iframes:-1x-1
+armorframes:-1x-1
+meterUsed:0
+
+
+//ending animations
+endframeorder:0x-1
+endcondition:NULL
+
+//transition to other animations
+transanim:NULL
+transcondition:NULL
+
+//frame conditions
+framesize:0x0
+frameanchor:15x10
+offset:0x0
+
+//hitbox data
+HITBOX_START:
+HITBOX_END:
+
+hitboxorder:-1x-1
+
+//hurtbox data
+HURTBOX_START:
+HURTBOX_END:
+
+hurtboxorder:-1x-1
+
+//buffer data
+BUFFER_START:
+BUFFER_END:
+
+//projectile data
+PROJECTILE_START:
+PROJECTILE_END:
+
+
+

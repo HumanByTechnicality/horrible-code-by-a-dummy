@@ -12,5 +12,7 @@ add_executable(newGame main.cpp)
 
 set(SFML_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SFML/lib/cmake/SFML")
 
+target_link_options(${PROJECT_NAME} PRIVATE -static-libgcc -static-libstdc++)
+
 find_package(SFML COMPONENTS system network window audio graphics CONFIG REQUIRED)
 target_link_libraries(newGame PUBLIC sfml-system sfml-network sfml-audio sfml-window sfml-graphics)

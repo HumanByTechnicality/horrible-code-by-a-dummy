@@ -49,22 +49,6 @@ _--|TTTTTTTTTTT|
         \_/
  */
 
-/*CONCEPT:
- * A game in which the player does not control the protagonist. rather, they
- * guide the protagonist through fighting game-like battles with a few set commands:
- *  2:attack mode (aggressive ai)
- *  3:defence mode (defensive ai)
- *  4:trick mode (tricky ai)
- *  trk>def,def>atk,atk>trk
- * All the non-normal modes are on the same cooldown, and last for a length decided
- * by the stats of the character. Every character is the same, save for their selection
- * of moves.
- * MOVES:
- * moves come in three types: attack, defense, and trick.
- *
- *
- *
- */
 
 //contains all functions necessary for the game but not included by the other namespaces, such as camera movement and game states
 namespace util {
@@ -80,6 +64,7 @@ namespace util {
 
     enum class direction {
         LEFT = -1,
+        NONE = 0,
         RIGHT = 1
     };
 
@@ -165,8 +150,17 @@ namespace util {
 //contains the stuff necessary for rendering
 namespace graphics {
 
+    enum class layer {
+        BACK = 0,
+        BACK_FRONT = 1,
+        MID_BACK = 2,
+        MID = 3,
+        MID_FRONT = 4,
+        FRONT = 5,
+    };
+
     const sf::Vector2u internalRes(320, 180); // the game's internal resolution
-    sf::Vector2u windowSize(1280, 720); // actual size of the game window
+    sf::Vector2u windowSize(960, 540); // actual size of the game window
 
     sf::RenderTexture rt; // the texture that the game renders to
 }
@@ -189,15 +183,96 @@ namespace ui {
 
 }
 
+
 namespace actors {
     class Actor;
     class Fighter;
 }
+
+
+namespace animation {
+    /*animType simply denotes the BASE input of the animation.
+     *animations such as jab1 and jab2 are delineated by an id variable
+     *in the animation.
+     */
+    enum class animType {
+        //passive animations and basic movement
+        NONE = -1,
+        idle = 0,
+        walk0 = 1,
+        walk1 = 2,
+        walk2 = 3,
+        jump0 = 4,
+        jump1 = 5,
+        jump2 = 6,
+        crouch = 7,
+        crouched = 8,
+        uncrouch = 9,
+        dash1 = 10,
+        dash2 = 11,
+        dash3 = 12,
+        dash4 = 13,
+        justblock = 15,
+
+        //grounded normals
+        g7a = 22,g8a = 23,g9a = 24,
+        g4a = 19,g5a = 20,g6a = 21,
+        g1a = 16,g2a = 17,g3a = 18,
+
+        //normal aerials
+        j7a = 22 + 9,j8a = 23 + 9,j9a = 24 + 9,
+        j4a = 19 + 9,j5a = 20 + 9,j6a = 21 + 9,
+        j1a = 16 + 9,j2a = 17 + 9,j3a = 18 + 9,
+
+        //grounded specials
+        g7b = 22 + 18,g8b = 23 + 18,g9b = 24 + 18,
+        g4b = 19 + 18,g5b = 20 + 18,g6b = 21 + 18,
+        g1b = 16 + 18,g2b = 17 + 18,g3b = 18 + 18,
+
+        //aerial specials
+        j7b = 22 + 27,j8b = 23 + 27,j9b = 24 + 27,
+        j4b = 19 + 27,j5b = 20 + 27,j6b = 21 + 27,
+        j1b = 16 + 27,j2b = 17 + 27,j3b = 18 + 27,
+
+        //space from 52-80 reserved for specialized inputs
+        g236 = 52, g214 = 53, g41236 = 54, g623 = 55,
+
+
+        //grabs
+        g4c = 81, g6c = 82,
+
+        //grab reaction
+        grabreaction = 83,
+
+        //hit reactions
+        hit00 = 90, hit01 = 91, hit02 = 92,
+        hit10 = 93, hit11 = 94, hit12 = 95,
+        hit20 = 96, hit21 = 97, hit22 = 98,
+
+        jhit0 = 99, jhit1 = 100, jhit2 = 101,
+
+        block = 9,
+        blocklow = 10,
+
+
+    };
+}
+
+
+
 namespace collision {
     using util::direction;
     using util::hitboxType;
     using util::damageType;
     using util::height;
+
+    enum class hurtboxType {
+        NONE = -1,
+        HURTBOX = 0,
+        BLOCKBOX = 1,
+        COUNTER = 2,
+        REFLECT = 3
+    };
 
     //a set of rectangles which defines a collider TODO: write CollisionBox class
     class CollisionBox{
@@ -205,7 +280,7 @@ namespace collision {
     protected:
         std::vector<std::array<int,4>> nullBounds = {{0,0,0,0}};
         std::vector<sf::IntRect> localBounds;//the bounds of the collision box with respect to some origin
-        std::vector<sf::IntRect> globalBounds;//the bounds of the collision box with respect to the stage
+        std::vector<sf::Rect<double>> globalBounds;//the bounds of the collision box with respect to the stage
         bool exist = false;
 
         //initializes local variables TODO: write create method for IntRect overload
@@ -235,6 +310,15 @@ namespace collision {
 
         //returns whether this collision box intersects with another collision box TODO: write intersects method
         bool intersects(CollisionBox &other) {
+            if (this->exist && other.exist) {
+                for (int i = 0; i<this->globalBounds.size(); i++) {
+                    for (int j = 0; j<other.globalBounds.size(); j++) {
+                        if (this->globalBounds[i].intersects(other.globalBounds[j])) {
+                            return true;
+                        }
+                    }
+                }
+            }
             return false;
         }
     };
@@ -258,11 +342,31 @@ namespace collision {
         damageType dType;//the type of damage this hitbox deals
         hitboxType bType;//the type of attack associated with this hitbox
         height bHeight;//the height of this hitbox
+
+        animation::animType trigger;//type of the animation triggered on hit
+        int triggerID;//ID of the animation triggered
     protected:
     public:
-        HitBox(std::vector<std::array<int,4>> &bounds) : CollisionBox(bounds) {
+        HitBox(std::vector<std::array<int,4>> &bounds, std::vector<std::string> datLines) : CollisionBox(bounds) {
+            knockBackX = 0;
+            knockBackY = 0;
+            knockBackXA = 0;
+            knockBackYA = 0;
+            knockBackTime = 0;
+            hitStun = 0;
+            blockStun = 0;
+            damage = 0;
+            knockDown = false;
+            hitStun = 0;
+            blockStun = 0;
+            dType = damageType::SHARP;
+            bType = hitboxType::OTHER;
+            bHeight = height::MID;
+
 
             exist = true;
+
+
         }
 
         HitBox(): CollisionBox(nullBounds) {
@@ -271,8 +375,8 @@ namespace collision {
 
 
         //returns the damage type of the hitbox
-        damageType getDType() {
-            return dType;
+        hitboxType getBType() {
+            return bType;
         }
 
         //returns the damage of the hitbox
@@ -284,16 +388,17 @@ namespace collision {
     private:
     protected:
     public:
-        HurtBox(): CollisionBox(nullBounds) {
+        const hurtboxType bType;
+
+        HurtBox():
+        CollisionBox(nullBounds), bType(hurtboxType::NONE) {
             exist = false;
         }
-    };
 
-    //TODO: plan BlockBox class
-    class BlockBox: public CollisionBox {
-    private:
-    protected:
-    public:
+        explicit HurtBox(std::vector<std::array<int,4>> bounds, hurtboxType Type) :
+        CollisionBox(bounds), bType(Type) {
+            exist = true;
+        }
     };
 
     //TODO: plan StageBox class
@@ -301,6 +406,13 @@ namespace collision {
     private:
     protected:
     public:
+        StageBox(): CollisionBox(nullBounds) {
+            exist = false;
+        }
+
+        explicit StageBox(std::vector<std::array<int,4>> bounds) : CollisionBox(bounds) {
+            exist = true;
+        }
     };
 
     //checks if two CollisionBoxes intersect each other TODO: write intersects method
@@ -314,16 +426,16 @@ namespace collision {
 
 namespace animation {
 
+
     class Animation {
     private:
     protected:
         std::vector<collision::HitBox> hitBoxes;//the set of hitboxes associated with this animation
         std::vector<collision::HurtBox> hurtBoxes;//the set of hurtboxes associated with this animation
-        std::vector<collision::BlockBox> blockBoxes;//the set of blockboxes associated with this animation
 
         sf::Texture texture;//the texture associated with this animation
 
-        std::vector<int> frameorder;//the order of frames in this animation
+        std::vector<int> frameorder;//the order of frames in this animation, by layer
 
         int width;//the width of one frame
         int height;//the height of one frame
@@ -331,8 +443,11 @@ namespace animation {
         int xOffset;//the offset from x=0 of the top left corner of the first frame
         int yOffset;//the offset from y=0 of the top left corner of the first frame
 
-        bool exist;
+        bool exist;//whether this animation has been properly initialized
     public:
+        std::vector<graphics::layer> layers;//the layers covered by the animation
+        int numLayers;//the number of layers the animation covers
+
         Animation(std::string id) {
             //initialize default values (remove "garbage")
             width = 0;
@@ -372,13 +487,14 @@ namespace animation {
 namespace actors {
     using util::direction;
     using animation::Animation;
+    using animation::animType;
 
     //The general class for anything that moves TODO: plan Actor class
     class Actor {
     private:
     protected:
-        int x = 0;//x position of the actor on the screen
-        int y = 0;//y position of the actor on the screen
+        double x = 0;//x position of the actor on the screen
+        double y = 0;//y position of the actor on the screen
         double dx = 0;//x velocity of the actor
         double dy = 0;//y velocity of the actor
 
@@ -388,7 +504,6 @@ namespace actors {
 
         std::vector<collision::HitBox> *activeHitBoxes;//references to the hitboxes active for the fighter
         std::vector<collision::HurtBox> *activeHurtBoxes;//references to the hurtboxes active for the fighter
-        std::vector<collision::BlockBox> *activeBlockBoxes;//references to the hitboxes active for the fighter
 
         virtual void getHitBoxes() {
 
@@ -410,7 +525,6 @@ namespace actors {
 
             activeHitBoxes = nullptr;
             activeHurtBoxes = nullptr;
-            activeBlockBoxes = nullptr;
 
             for (int i = 0; i < animList.size(); i++) {
                 animations.emplace_back(animList[i]);
@@ -438,27 +552,50 @@ namespace actors {
         int knockBackTime = 0;//the amount of time that knockback will be applied over
         int knockBackX = 0;//the amount of knockback in the x direction
         int knockBackY = 0;//the amount of knockback in the y direction
-        int momentumX = 0;//the amount of momentum in the x direction
-        int momentumY = 0;//the amount of momentum in the y direction
+        double momentumX = 0;//the amount of momentum in the x direction
+        double momentumY = 0;//the amount of momentum in the y direction
         double EXmeter = 0;//the amount of EX meter that the fighter has built up
         int hp = 0;//the current health of the fighter (in tenths of a percent)
         double gravity = 1;//the gravity of the fighter
+        double jumpheight = 4;
         double armor = 0;//the armor hp equivalent of the fighter
         bool blockHigh = false;//whether the fighter is blocking high
         bool blockLow = false;//whether the fighter is blocking low
         bool landing = false;//whether the fighter is landing
         bool jumping = false;//whether the fighter is jumping
         bool crouching = false;//whether the fighter is crouching
+        bool uncrouching = false;//whether the fighter is uncrouching
         bool crouched = false;//whether the fighter is crouched
+        bool actionable = false;//whether the fighter is capable of performing actions
+        bool inMove = false;//whether the fighter is currently in an active move
         bool isDead = false;//whether the fighter is K.O'd
 
-        int combo = 0;//the number of hits in this fighter's combo
-        int juggle = 0;//the number of hits
+        direction walking = direction::NONE;
+        direction lastWalking = direction::NONE;
 
+        int combo = 0;//the number of hits in this fighter's combo
+        int juggle = 0;//the number of hits on the opposing fighter since they've landed
+
+        //animation shit
+        bool endActive = false;//whether the current active animation is ending
+        bool endPassive = false;//whether the current passive animation is ending
+        int activeFrame = 0;//the frame of the active animation
+        int passiveFrame = 0;//the frame of the passive animation
+        int currentFrame = 0;//the frame of the currently playing animation
+        animType activeAnimation = animType::NONE;//the type of the active animation
+        animType passiveAnimation = animType::NONE;//the type of the passive animation
+        animType currentAnimation = animType::NONE;//the type of the current animation
+        animType lastAnimation = animType::NONE;//the type of the last animation
+        int activeID = 0;//the ID of the active animation
+        int passiveID = 0;//the ID of the passive animation
+        int currentID = 0;//the ID of the current animation
+        int lastID = 0;//the ID of the last animation
+        int currentIndex = 0;//the index of the current animation
 
         //modifiable stats
         int maxHp = 1000;//the max hp of the fighter (in tenths of a percent)
         double speed = 5;//the speed of the fighter
+        double airspeed = 5;//the airspeed of the fighter
         double grabMult = 1;//the damage multiplier applied to the fighter's grab hitboxes
         double meleeMult = 1;//the damage multiplier applied to the fighter's meelee hitboxes
         double weaponMult = 1;//the damage multiplier applied to the fighter's weapon hitboxes
@@ -468,30 +605,54 @@ namespace actors {
         //upgrade stats
         double projectileSpeed = 1;//the speed of the fighter's projectiles
         double meterMult = 1;//the meter multiplier applied to the fighter's meter gains
-        double bluntRes = 0;//resistance to blunt damage
-        double sharpRes = 0;//resistance to sharp damage
-        double pierceRes = 0;//resistance to sharp damage
-        double magicRes = 0;//resistance to magic damage
-        double energyRes = 0;//resistance to energy damage
+        double meleeRes = 0;//resistance to melee damage
+        double projectileRes = 0;//resistance to projectile damage
+        double grabRes = 0;//resistance to grab damage
+        double weaponRes = 0;//resistance to weapon damage
 
 
         //ability flags
+        bool lifeSteal = false;//gains life steal on meter moves
+        bool ultBoost = false;//increased stats after using ultimate
+        bool stanceChange = false;//can swap offenses with resistances using 68426c
+        bool upThrow = false;//adds an upward throw
         bool rageBoost = false;//gains mult as hp decreases
         bool grabArmor = false;//gains armor during basic grab animation
         bool impactSprint = false;//replaces forward dash with a damaging sprint
         bool controlProjectiles = false;//direction held changes projectile speed
-        bool longParry = false;//replaces parry with a longer window
+        bool longParry = false;//gives parry a longer window
         bool downDash = false;//adds an aerial down dash
-        bool burst = false;//gains 1 burst meter
+        bool burst = false;//adds 1 burst meter
         bool launcher = false;//half circle forward performs a launcher
-        bool poisonGrab = false;//grabs poison the opponent
-        bool specialCanceling = false;//can cancel out of specials
+        bool poisonGrab = false;//grabs poison the opponent, dealing extra damage over time
+        bool stunProjectiles = false;//projectiles stun the opponent, leaving them vulnerable for longer
+        bool cCanceling = false;//can cancel out of anything w/ meter
         bool doubleDash = false;//gains a second aerial dash
         bool dashAttack = false;//gains a new attack out of dash
         bool groundedHitbox = false;//adds a grounded hitbox on down aerial
         bool invincibleDash = false;//gives the character an invincible dash
         bool blockBreaker = false;//gives the character increased damage on block
-        bool fieryMelee = false;//adds fire to melee attacks, dealing a small amount of extra damage
+        bool fieryMelee = false;//melee attacks burn the opponent, dealing a small amount of extra damage
+        bool icyWeapons = false;//weapons freeze the opponent, slowing down their movement
+
+        //misc.
+        void endPassiveAnim(bool reset = false) {
+            endPassive = false;
+            passiveFrame = 0;
+            if (reset) {
+                passiveAnimation = animType::idle;
+            }
+
+        }
+
+        void endActiveAnim() {
+            endActive = false;
+            activeFrame = 0;
+            activeAnimation = animType::NONE;
+
+        }
+
+
 
     public:
         Fighter(std::vector<std::string> moveset) : Actor(moveset) {
@@ -509,21 +670,88 @@ namespace actors {
 
         void update() override {
             if (hitStun<=0 && blockStun<=0) {
+                passiveID = 0;
                 if (landing) {
-
+                    actionable = false;
+                    if (endPassive) {
+                        landing = false;
+                        actionable = true;
+                    }
                 }
+
                 else if (jumping) {
+                    actionable = false;
+                    if (lastWalking == direction::NONE) {
+                        passiveAnimation = animType::jump1;
+                    }
+
+                    else if (lastWalking == facing) {
+                        passiveAnimation = animType::jump2;
+                    }
+
+                    else {
+                        passiveAnimation = animType::jump0;
+                    }
+
+                    if (endPassive) {
+                        actionable = true;
+                    }
+
+
+                    if (passiveFrame == 3) {
+                        dy = jumpheight;
+                        dx = airspeed * (int)lastWalking;
+                    }
+                }
+
+
+                else if (y > 0) {
+                    if (currentAnimation == passiveAnimation) {
+                        dy -= gravity;
+                    }
+                    if (y+dy <= 0 ) {
+                        landing = true;
+                        actionable = false;
+                        endActiveAnim();
+                        y = 0;
+                        dy = 0;
+                        passiveFrame = 0;
+                    }
 
                 }
-                else if (y==0) {
+
+
+                else if (y<=0) {
+                    y = 0;
                     if (crouching) {
-
+                        passiveAnimation = animType::crouch;
+                        if (endPassive) {
+                            crouching = false;
+                            crouched = true;
+                            endPassiveAnim();
+                        }
                     }
+
+                    else if (uncrouching) {
+                        passiveAnimation = animType::uncrouch;
+                        if (endPassive) {
+                            uncrouching = false;
+                            crouched = false;
+                            endPassiveAnim();
+                        }
+                    }
+
                     else if (crouched) {
-
+                        passiveAnimation = animType::crouched;
+                        if (endPassive) {
+                            endPassiveAnim();
+                        }
                     }
-                    else {
 
+                    else {
+                        if (walking == direction::NONE) {
+                            passiveAnimation = animType::idle;
+                        }
                     }
                 }
 
@@ -534,8 +762,8 @@ namespace actors {
             else{
 
             }
-            x += static_cast<int>(dx);
-            y += static_cast<int>(dy);
+            x += dx;
+            y += dy;
         }
         int getCombo() {
             return combo;
@@ -568,23 +796,38 @@ namespace actors {
 
         //applies the proper values to the fighter on hit
         void hit(collision::HitBox &box) override {
-            using util::damageType;
+            using util::hitboxType;
             double dmg = box.getDamage(enemy);
-            switch (box.dType) {
-                case damageType::BLUNT:
-                    dmg *= 1-bluntRes;
+            switch (box.bType) {
+                case hitboxType::PUNCH:
+                    dmg *= 1-meleeRes;
                     break;
-                case damageType::SHARP:
-                    dmg *= 1-sharpRes;
+                case hitboxType::KICK:
+                    dmg *= 1-meleeRes;
                     break;
-                case damageType::PIERCE:
-                    dmg *= 1-pierceRes;
+                case hitboxType::WEAPON:
+                    dmg *= 1-weaponRes;
                     break;
-                case damageType::MAGIC:
-                    dmg *= 1-magicRes;
+                case hitboxType::PROJECTILE:
+                    dmg *= 1-projectileRes;
                     break;
-                case damageType::ENERGY:
-                    dmg *= 1-energyRes;
+                case hitboxType::ENERGY:
+                    dmg *= 1-projectileRes;
+                    break;
+                case hitboxType::BEAM:
+                    dmg *= 1-meleeRes;
+                    break;
+                case hitboxType::GRAB:
+                    dmg *= 1-grabRes;
+                    break;
+                case hitboxType::HIT_GRAB:
+                    dmg *= 1-grabRes;
+                    break;
+                case hitboxType::THROW:
+                    dmg *= 1-grabRes;
+                    break;
+                case hitboxType::OTHER:
+                    dmg *= 1-projectileRes;
             }
 
             hp -= static_cast<int>(dmg);
@@ -652,14 +895,250 @@ protected:
 public:
 };
 
+
+/**GAMESTATES: bastardous amalgamations of various logic which
+ *can vary based upon the current game state**/
+namespace game {
+    class GameState {
+    private:
+    protected:
+    public:
+        GameState(){}
+
+        virtual void enter(){}
+
+        virtual void handleEvents(sf::Event event){}
+
+        virtual void update(){}
+
+        virtual void draw(sf::RenderWindow& window){}
+
+        virtual void exit(){}
+    };
+
+
+    class MenuState : public GameState {
+    private:
+    protected:
+    public:
+        MenuState() : GameState(){}
+
+        void enter() override{}
+
+        void handleEvents(sf::Event event) override{}
+
+        void update() override {}
+
+        void draw(sf::RenderWindow& window) override {}
+
+        void exit() override{}
+    };
+
+    class MainMenu : public MenuState {
+    private:
+    protected:
+    public:
+        MainMenu() : MenuState(){}
+
+        void enter() override{}
+
+        void handleEvents(sf::Event event) override{}
+
+        void update() override {}
+
+        void draw(sf::RenderWindow& window) override {}
+
+        void exit() override{}
+    };
+
+    class Settings : public MenuState {
+    private:
+    protected:
+    public:
+        Settings() : MenuState(){}
+
+        void enter() override{}
+
+        void handleEvents(sf::Event event) override{}
+
+        void update() override {}
+
+        void draw(sf::RenderWindow& window) override {}
+
+        void exit() override{}
+    };
+
+    class FighterCreate : public MenuState {
+    private:
+    protected:
+    public:
+        FighterCreate() : MenuState(){}
+
+        void enter() override{}
+
+        void handleEvents(sf::Event event) override{}
+
+        void update() override {}
+
+        void draw(sf::RenderWindow& window) override {}
+
+        void exit() override{}
+    };
+
+
+    class Shop : public MenuState {
+    private:
+    protected:
+    public:
+        Shop() : MenuState(){}
+
+        void enter() override{}
+
+        void handleEvents(sf::Event event) override{}
+
+        void update() override {}
+
+        void draw(sf::RenderWindow& window) override {}
+
+        void exit() override{}
+    };
+
+
+    class TrainingShop : public MenuState {
+    private:
+    protected:
+    public:
+        TrainingShop() : MenuState(){}
+
+        void enter() override{}
+
+        void handleEvents(sf::Event event) override{}
+
+        void update() override {}
+
+        void draw(sf::RenderWindow& window) override {}
+
+        void exit() override{}
+    };
+
+
+    class CombatState : public GameState {
+    private:
+    protected:
+    public:
+        CombatState() : GameState(){}
+
+        void enter() override{}
+
+        void handleEvents(sf::Event event) override{}
+
+        void update() override {}
+
+        void draw(sf::RenderWindow& window) override {}
+
+        void exit() override{}
+    };
+
+
+    class OfflineCombat : public CombatState {
+    private:
+    protected:
+    public:
+        OfflineCombat() : CombatState(){}
+
+        void enter() override{}
+
+        void handleEvents(sf::Event event) override{}
+
+        void update() override {}
+
+        void draw(sf::RenderWindow& window) override {}
+
+        void exit() override{}
+    };
+
+
+    class TrainingCombat : public CombatState {
+    private:
+    protected:
+    public:
+        TrainingCombat() : CombatState(){}
+
+        void enter() override{}
+
+        void handleEvents(sf::Event event) override{}
+
+        void update() override {}
+
+        void draw(sf::RenderWindow& window) override {}
+
+        void exit() override{}
+    };
+
+
+    class OnlineCombat : public CombatState {
+    private:
+    protected:
+    public:
+        OnlineCombat() : CombatState(){}
+
+        void enter() override{}
+
+        void handleEvents(sf::Event event) override{}
+
+        void update() override {}
+
+        void draw(sf::RenderWindow& window) override {}
+
+        void exit() override{}
+    };
+}
+
+
+
+
 int main() {
 
     //intialize necessary variables
-    auto gameWindow = sf::RenderWindow(sf::VideoMode(graphics::windowSize.x,graphics::windowSize.y),"fightingCoach");//the window that the game is drawn to
+    auto gameWindow = sf::RenderWindow(sf::VideoMode(1280,720),"fightingCoach");//the window that the game is drawn to
     graphics::rt.create(graphics::internalRes.x, graphics::internalRes.y);
 
-    while (gameWindow.isOpen()) {
+    const sf::Time timePerFrame = sf::seconds(1.f/60.f);
+    sf::Clock clock;
+    sf::Time timeSinceUpdate = sf::Time::Zero;
+    sf::Time elapsedTime;
 
+    sf::Event event;
+
+    while (gameWindow.isOpen()) {
+        while (gameWindow.pollEvent(event)) {
+
+            // Check for the "Close" request (e.g., clicking the 'X')
+            if (event.type == sf::Event::Closed) {
+                gameWindow.close();
+            }
+
+            sf::Time elapsed = clock.restart();
+            timeSinceUpdate += elapsed;
+
+            while (timeSinceUpdate > timePerFrame) {
+                timeSinceUpdate -= timePerFrame;
+                //fighters[1].update();
+                //fighters[2].update();
+                //st.update()
+            }
+
+            // Check for key presses (e.g., Escape to exit)
+            if (event.type == sf::Event::KeyPressed) {
+                if (event.key.code == sf::Keyboard::Escape) {
+                    gameWindow.close();
+                }
+            }
+        }
+
+        gameWindow.clear(sf::Color::Transparent);
+        gameWindow.display();
     }
+
     return 0;
 }

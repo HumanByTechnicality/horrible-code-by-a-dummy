@@ -1,0 +1,20 @@
+ALL LINES:
+- Each line starts with a tag (indicator for parsing) and a delimiter (ALWAYS a colon)
+- Afterwards, values are written as follows:
+    -pairs of values (i.e a framecount and frame id) are indicated by  aXb
+    -pairs of values plus a frame are indicated by aXb,c
+    -lists of values or value pairs are separated by spaces
+    -groups of four or more values are formatted a,b,c,d
+
+MOVE KEY:
+framenum; a; the number of frames in an animation
+frameorder; axb; the number (a) of a frame (id b) in a row before the next unique frame is displayed
+startaltitude: -1 for crouching,  0 for grounded, 1 for aerial
+
+ID: numbered as follows:
+type (000-999 representing order in animType enum class), aerial or not (0 or 1), (input (000-991, aligned with a chart),
+ordinality (order in sequence, 0 to 9), variant(0-9, representing A-J)
+
+ex: 019004000 represents g4a1A
+
+
