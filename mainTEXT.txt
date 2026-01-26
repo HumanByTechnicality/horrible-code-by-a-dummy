@@ -62,89 +62,6 @@ namespace util {
         double zoom;
     };
 
-    //function to shift each element of an array over by one, overloaded for arrays of char, int and float.
-    bool shift(char list[], int size, int increment = 1, bool cycle=false){
-        increment = increment %size;
-        char list2[size];
-        int startI = increment * (increment > 0);
-        int endI = size -1 + increment + (increment < 0);
-        for (int i = 0; i < size; i++) {
-            list2[i] = 'x';
-        }
-        for (int i = startI; i<endI;i++) {
-            list2[i] = list[i-increment];
-        }
-        if (cycle) {
-            for (int i = 0; i<size;i++) {
-                if (list2[i] == 'x') {
-                    list2[i] = list[((i-increment)+size)%size];
-                }
-            }
-        }
-        for (int i = 0; i<size; i++) {
-            list[i] = list2[i];
-        }
-        return true;
-    }//defaults to 'x' when value is deleted
-    bool shift(int list[], int size, int increment = 1, bool cycle=false){
-        increment = increment %size;
-        int list2[size];
-        int startI = increment * (increment > 0);
-        int endI = size -1 + increment + (increment < 0);
-        for (int i = 0; i < size; i++) {
-            list2[i] = -1;
-        }
-        for (int i = startI; i<endI;i++) {
-            list2[i] = list[i-increment];
-        }
-        if (cycle) {
-            for (int i = 0; i<startI;i++) {
-                list2[i] = list[(i-increment)%size];
-            }
-        }
-        for (int i = 0; i<size; i++) {
-            list[i] = list2[i];
-        }
-        return true;
-    }//defaults to -1 when value is deleted
-    bool shift(double list[], int size, int increment = 1, bool cycle=false) {
-        increment = increment %size;
-        double list2[size];
-        int startI = increment * (increment > 0);
-        int endI = size -1 + increment + (increment < 0);
-        for (int i = 0; i < size; i++) {
-            list2[i] = -1;
-        }
-        for (int i = startI; i<endI;i++) {
-            list2[i] = list[i-increment];
-        }
-        if (cycle) {
-            for (int i = 0; i<startI;i++) {
-                list2[i] = list[(i-increment)%size];
-            }
-        }
-        for (int i = 0; i<size; i++) {
-            list[i] = list2[i];
-        }
-        return true;
-    }//defaults to -1.0 when value is deleted
-
-    //function to split a string at all instances of a delimiter
-    std::vector<std::string> split(std::string &s, char delimiter = ' ') {
-        std::vector<std::string> tokens;
-        size_t start = 0;
-        size_t end = s.find(delimiter);
-
-        while (end != std::string::npos) {
-            tokens.push_back(s.substr(start, end - start));
-            start = end + 1;
-            end = s.find(delimiter, start);
-        }
-        tokens.push_back(s.substr(start)); // Add the last token
-
-        return tokens;
-    }
-
     enum class direction {
         LEFT = -1,
         NONE = 0,
@@ -230,9 +147,48 @@ namespace util {
 
 }
 
+//contains the stuff necessary for rendering
+namespace graphics {
+
+    enum class layer {
+        BACK = 0,
+        BACK_FRONT = 1,
+        MID_BACK = 2,
+        MID = 3,
+        MID_FRONT = 4,
+        FRONT = 5,
+    };
+
+    const sf::Vector2u internalRes(320, 180); // the game's internal resolution
+    sf::Vector2u windowSize(960, 540); // actual size of the game window
+
+    sf::RenderTexture rt; // the texture that the game renders to
+}
+
+namespace ui {
+
+    //any ui element that can be selected TODO:plan Button class
+    class Button {
+    private:
+    protected:
+    public:
+    };
+
+    //any ui element that changes according to a state TODO:plan Indicator class
+    class Indicator {
+    private:
+    protected:
+    public:
+    };
+
+}
+
+
 namespace actors {
+    class Actor;
     class Fighter;
 }
+
 
 namespace animation {
     /*animType simply denotes the BASE input of the animation.
@@ -257,8 +213,6 @@ namespace animation {
         dash3 = 12,
         dash4 = 13,
         justblock = 15,
-        block = 16,
-        blocklow = 17,
 
         //grounded normals
         g7a = 22,g8a = 23,g9a = 24,
@@ -297,342 +251,12 @@ namespace animation {
 
         jhit0 = 99, jhit1 = 100, jhit2 = 101,
 
+        block = 9,
+        blocklow = 10,
+
 
     };
 }
-
-//stores data for DTOs
-namespace data {
-    //the ids of stats in stats arrays
-    enum statID {maxHP, speed, airSpeed, grabMult, meleeMult, weaponMult,
-        projectileMult, meterMult, maxStamina, meleeRes, projectileRes,
-        weaponRes, grabRes, projectileSpeed, lifeSteal, ultBoost, stanceChange,
-        upThrow, rageBoost, grabArmor, impactSprint, controlProjectiles, longParry,
-        downDash, burst, launcher, poisonGrab, icyWeapons, fieryMelee, stunProjectiles,
-        cCanceling, doubleDash, dashAttack, groundedHitbox, invincibleDash, blockBreaker};
-
-    //the types of modification that an upgrade can perform on a stat
-    enum modifyType{ADD, SUBTRACT, MULTIPLY, DIVIDE, SET};
-
-    //modifies stats in a fighterBuilder
-    class Upgrade{
-    public:
-        std::string name;
-        data::statID stat;
-        modifyType type;
-        double amount;
-        double applyTo(double stat) {
-            switch (type) {
-                case ADD:
-                    return stat + amount;
-                case SUBTRACT:
-                    return stat - amount;
-                case MULTIPLY:
-                    return stat * amount;
-                case DIVIDE:
-                    return stat / amount;
-                case SET:
-                    return amount;
-            }
-            return -1;
-        }
-
-
-    };
-
-    //DTO for Fighters
-    class FighterBuilder {
-    public:
-        std::array<const double, 36> defaultStats =
-            {1000,5,5,
-            1,1,1,1,1,
-            300,
-            0,0,0,0,
-            1,
-            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-        };
-        std::array<double, 36> baseStats;
-        std::array<double, 36> buildStats;
-        //std::vector<Upgrade> upgrades;
-        std::vector<std::string> moveFiles;
-
-        FighterBuilder(std::array<double, 36> bsts, std::vector<std::string> moves) {
-            for (int i = 0; i < 36; i++) {
-                baseStats[i] = bsts[i];
-                buildStats[i] = bsts[i];
-            }
-            for (auto move : moves) {
-                moveFiles.push_back(move);
-            }
-        }
-
-        FighterBuilder() {
-            for (int i = 0; i < 36; i++) {
-                baseStats[i] = defaultStats[i];
-                buildStats[i] = defaultStats[i];
-            }
-        }
-    };
-
-    //DTO for Stages
-    class StageBuilder {
-
-    };
-}
-
-//contains the stuff necessary for rendering
-namespace graphics {
-
-    enum class layerID {
-        BACKDROP1 = 0,
-        BACKDROP2 = 1,
-        BACKDROP3 = 2,
-        BACKDROP4 = 3,
-        GROUND = 4,
-        EFFECTS_BACK = 5,
-        ENTITIES_BACK = 6,
-        ENTITIES_FRONT = 7,
-        EFFECTS_FRONT = 8,
-        FOREGROUND = 9,
-    };
-
-    class ActiveSprite{
-    public:
-        bool active = false;
-        int framesSinceLastChange = 0;
-        int x = 0;
-        int y = 0;
-        int renderOrder = 0;
-        sf::Sprite*sprite = nullptr;
-        ActiveSprite(const sf::Texture &texture, bool startActive):sprite(new sf::Sprite(texture)) {
-
-        }
-
-        const sf::Texture* getTexture() {
-            return sprite->getTexture();
-        }
-
-        void setTexture(const sf::Texture *texture) {
-            sprite->setTexture(*texture);
-        }
-
-        void setTextureRect(const sf::IntRect& rect) {
-            sprite->setTextureRect(rect);
-        }
-
-        ~ActiveSprite() {
-            delete sprite;
-        }
-    };
-
-    class Layer : public sf::Drawable , public sf::Transformable{
-    public:
-
-        sf::VertexArray spriteVA;
-        std::vector<ActiveSprite*> sprites;
-        layerID id;
-
-        Layer() {
-            sprites.reserve(1);
-            spriteVA = sf::VertexArray(sf::Quads, 4);
-        }
-        Layer(int maxNumSprites) {
-            sprites.reserve(maxNumSprites);
-            spriteVA = sf::VertexArray(sf::Quads, maxNumSprites * 4);
-        }
-    private:
-        sf::VertexArray m_vertices;
-        sf::Texture m_texture;
-        virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const {
-            // apply the transform
-            states.transform *= getTransform();
-            // apply the tileset texture
-            states.texture = &m_texture;
-            // draw the vertex array
-            target.draw(m_vertices, states);
-        }
-
-    };
-
-
-    const sf::Vector2u internalRes(320, 180); // the game's internal resolution
-    sf::Vector2u windowSize(960, 540); // actual size of the game window
-
-    sf::RenderTexture rt; // the texture that the game renders to
-}
-
-namespace ui {
-    enum class pressFunction {
-        NONE = -1,
-        increment_loop = 0,
-        decrement_loop = 1,
-        increment_limit = 2,
-        decrement_limit = 3,
-        toggle = 4,
-        drag = 5
-
-    };
-
-    enum class releaseFunction {
-        NONE = -1,
-        increment_loop = 0,
-        decrement_loop = 1,
-        increment_limit = 2,
-        decrement_limit = 3,
-        toggle = 4,
-        set = 5
-    };
-
-    enum class indicatorType {
-        on_off = 0,
-        continuous_RIGHT = 1,
-        continuous_UP = 2,
-        continuous_DOWN = 3,
-        continuous_LEFT = 4,
-        discrete_RIGHT = 5,
-        discrete_UP = 6,
-        discrete_DOWN = 7,
-        discrete_LEFT = 8,
-        discrete_IMAGE = 9,
-        counter = 10
-    };
-
-    //any ui element that can be selected TODO:plan Button class
-    class Button {
-    private:
-        int x = 0;//x position of top left corner
-        int y = 0;//y position of top left corner
-        int width = 0;//total width
-        int height = 0;//total height
-
-        bool selected = false;//whether the slider is currently selected
-
-        int numStates = 0;//total number of unique states
-        int state = 0;//current state (0 to numStates-1)
-
-        int* readVal = nullptr;//value read from to update display
-        int* writeVal = nullptr;//value modified by the button when pressed
-
-        pressFunction fP = pressFunction::NONE;
-        releaseFunction fR = releaseFunction::NONE;
-        indicatorType type = indicatorType::on_off;
-    protected:
-    public:
-        void drag (int xC, int yC) {
-            switch (type) {
-                case indicatorType::discrete_UP:
-                case indicatorType::continuous_UP:
-                    state = (double)(y+height-yC)/height * numStates;
-                    break;
-                case indicatorType::discrete_DOWN:
-                case indicatorType::continuous_DOWN:
-                    state = (double)(yC-y)/height * numStates;
-                    break;
-                case indicatorType::discrete_LEFT:
-                case indicatorType::continuous_LEFT:
-                    state = (double)(x+width-xC)/height * numStates;
-                    break;
-                case indicatorType::discrete_RIGHT:
-                case indicatorType::continuous_RIGHT:
-                    state = (double)(xC-x)/height * numStates;
-                    break;
-                default:
-                    break;
-            }
-
-            if (state < 0 ) {
-                state = 0;
-            }
-
-            if (state >= numStates) {
-                state = numStates-1;
-            }
-        }
-
-        void press(int xC, int yC) {
-            switch (fP) {
-                case pressFunction::NONE:
-                    break;
-                case pressFunction::increment_loop:
-                    state ++;
-                    if (state >= numStates) {
-                        state = 0;
-                    }
-                    break;
-                case pressFunction::increment_limit:
-                    state ++;
-                    if (state >= numStates) {
-                        state = numStates;
-                    }
-                    break;
-                case pressFunction::decrement_loop:
-                    state --;
-                    if (state < 0) {
-                        state = numStates-1;
-                    }
-                    break;
-                case pressFunction::decrement_limit:
-                    state --;
-                    if (state < 0) {
-                        state = 0;
-                    }
-                    break;
-                case pressFunction::toggle:
-                    state = !state;
-                    break;
-                case pressFunction::drag:
-                    drag(xC, yC);
-                    break;
-
-            }
-            selected = true;
-        }
-        void release(int x, int y) {
-            selected = false;
-        }
-        void update(int yC = 0, int xC = 0) {
-            if (selected && fP == pressFunction::drag) {
-                drag(xC, yC);
-            }
-        }
-
-    };
-
-    //any ui element that changes according to a state TODO:plan Indicator class
-    class Indicator {
-    private:
-        int x = 0;
-        int y = 0;
-        int width = 0;
-        int height = 0;
-
-        int numStates = 0;
-        int state = 0;
-
-        int* readVal = nullptr;
-
-        indicatorType type = indicatorType::on_off;
-    protected:
-    public:
-        void press(int x, int y) {
-
-        }
-        void release(int x, int y) {
-
-        }
-        void update() {
-
-        }
-    };
-
-}
-
-
-namespace actors {
-    class Actor;
-    class Fighter;
-}
-
 
 
 
@@ -655,7 +279,7 @@ namespace collision {
     private:
     protected:
         std::vector<std::array<int,4>> nullBounds = {{0,0,0,0}};
-        std::vector<sf::Rect<double>> localBounds;//the bounds of the collision box with respect to some origin
+        std::vector<sf::IntRect> localBounds;//the bounds of the collision box with respect to some origin
         std::vector<sf::Rect<double>> globalBounds;//the bounds of the collision box with respect to the stage
         bool exist = false;
 
@@ -674,7 +298,7 @@ namespace collision {
 
         }
         //creates a new collision box TODO: write CollisionBox method for IntRect overload
-        explicit CollisionBox(std::vector<sf::Rect<double>> &bounds) {
+        explicit CollisionBox(std::vector<sf::IntRect> &bounds) {
             for (int i = 0; i<bounds.size(); i++) {
                 localBounds.push_back(bounds[i]);
                 globalBounds.push_back(localBounds.back());
@@ -766,7 +390,7 @@ namespace collision {
     private:
     protected:
     public:
-        hurtboxType bType;
+        const hurtboxType bType;
 
         HurtBox():
         CollisionBox(nullBounds), bType(hurtboxType::NONE) {
@@ -817,21 +441,14 @@ namespace collision {
 
 namespace animation {
 
-    struct TextureWrapper {
-        std::string fileID;
-        sf::Texture texture;
-    };
-
-    sf::Texture NullTexture;
-    bool nullTextureLoaded = NullTexture.loadFromFile("../__pic/NULLTEXTURE.png");
-    std::vector<TextureWrapper> textures = {TextureWrapper{}};
 
     class Animation {
+    private:
     protected:
         std::vector<collision::HitBox> hitBoxes;//the set of hitboxes associated with this animation
         std::vector<collision::HurtBox> hurtBoxes;//the set of hurtboxes associated with this animation
 
-        sf::Texture* texture;//the texture associated with this animation
+        sf::Texture texture;//the texture associated with this animation
 
         std::vector<int> frameorder;//the order of frames in this animation, by layer
 
@@ -842,15 +459,9 @@ namespace animation {
         int yOffset;//the offset from y=0 of the top left corner of the first frame
 
         bool exist;//whether this animation has been properly initialized
-        int ID = 0;
-        int wrapperIndex = 0;
-
-        animType animType;
     public:
-        std::vector<graphics::layerID> layers;//the layers covered by the animation
+        std::vector<graphics::layer> layers;//the layers covered by the animation
         int numLayers;//the number of layers the animation covers
-        int frameNum;//the number of unique frames in an animation
-        int length;//the length of the animation
 
         Animation(std::string id) {
             //initialize default values (remove "garbage")
@@ -860,83 +471,12 @@ namespace animation {
             xOffset = 0;
             yOffset = 0;
             exist = false;
-            length = 0;
-            TextureWrapper texture;
-
-            frameorder.reserve(400);
-            hitBoxes.reserve(400);
-            hurtBoxes.reserve(400);
 
             std::string directory = "../";
-            std::ifstream vals(directory + "__val/" + id + ".txt");
+            std::ifstream vals(directory + "/__val/" + id + ".txt");
 
             if (!vals.is_open()) {
                 std::cerr << "Error opening file: " << directory << std::endl;
-            }
-
-            else {
-                std::vector<std::string> lines;
-                std::string line;
-                const char*Line;
-
-                while (std::getline(vals, line)) {
-                    //set line values to lowercase
-                    Line = line.c_str();
-                    for (int i = 0; Line[i] != '\0'; i++) {
-                        std::tolower(Line[i]);
-                    }
-                    line = std::string(Line);
-
-                    //separate flag from data on each line
-                    std::vector<std::string> flag = util::split(line, ':');
-
-                    //sets image file and texture that the image draws from
-                    if (flag[0] == "file") {
-                        bool existing = false;
-                        for (int i = 0; i< textures.size(); i++) {
-                            if (flag[1]==textures[i].fileID) {
-                                existing = true;
-                                wrapperIndex = i;
-                            }
-                        }
-                        if (!existing) {
-                            sf::Texture textureA;
-                            textureA.loadFromFile(directory + "__pic/" + flag[1]);
-                            textures.push_back(TextureWrapper{flag[1], textureA});
-                            wrapperIndex = textures.size() - 1;
-                        }
-                    }
-                    // sets frameNum
-                    if (flag[0] == "framenum") {
-                        frameNum = std::stoi(flag[1]);
-                    }
-
-                    //sets frameOrder
-                    else if (flag[0] == "frameorder") {
-                        std::vector<std::string> data = util::split(flag[1], ' ');
-                        for (int i = 0; i< data.size(); i++) {
-                            std::vector<std::string> data2 = util::split(data[i], 'x');
-                            if (data2.size()>1) {
-                                int numFrames = std::stoi(data2[0]);
-                                for (int j = 0; j< numFrames; j++) {
-                                    frameorder.push_back(std::stoi(data2[1]));
-                                    //std::cout << std::stoi(data2[1]) << std::endl;
-                                    length++;
-                                }
-                            }
-                        }
-                    }
-
-                    else if (flag[0] == "framesize") {
-                        std::vector<std::string> data = util::split(flag[1], 'x');
-                        width = std::stoi(data[0]);
-                        height = std::stoi(data[1]);
-                    }
-                    else if (flag[0] == "id") {
-                        ID = std::stoi(flag[1]);
-                    }
-
-                }
             }
         }
 
@@ -950,26 +490,6 @@ namespace animation {
         }
 
         ~Animation() {}
-
-       const sf::Texture* getTexture() {
-            return &textures.at(wrapperIndex).texture;
-        }
-
-        sf::IntRect getFrame(int frame) {
-            return sf::IntRect(xOffset, yOffset + height * frameorder[frame], width, height);
-        }
-
-        bool operator<(const Animation& other) const {
-            return ID < other.ID;
-        }
-
-        bool operator>(const Animation& other) const {
-            return ID > other.ID;
-        }
-
-        bool operator==(const Animation& other) const {
-            return ID == other.ID;
-        }
     };
 
     class moveBuffer {
@@ -978,7 +498,6 @@ namespace animation {
     public:
     };
 }
-
 
 namespace actors {
     using util::direction;
@@ -1041,8 +560,6 @@ namespace actors {
     };
 
     //Any character TODO: plan Fighter class
-    class Fighter;
-    
     class Fighter: public Actor {
     friend class collision::CollisionBox;
     private:
@@ -1103,13 +620,16 @@ namespace actors {
         double meleeMult = 1;//the damage multiplier applied to the fighter's meelee hitboxes
         double weaponMult = 1;//the damage multiplier applied to the fighter's weapon hitboxes
         double projectileMult = 1;//the damage multiplier applied to the fighter's projectile hitboxes
-        double meterMult = 1;//the meter multiplier applied to the fighter's meter gains
         double maxStamina = 50;//the hp equivalent of the fighter's max stamina
+
+        //upgrade stats
+        double projectileSpeed = 1;//the speed of the fighter's projectiles
+        double meterMult = 1;//the meter multiplier applied to the fighter's meter gains
         double meleeRes = 0;//resistance to melee damage
         double projectileRes = 0;//resistance to projectile damage
         double grabRes = 0;//resistance to grab damage
         double weaponRes = 0;//resistance to weapon damage
-        double projectileSpeed = 1;//the speed of the fighter's projectiles
+
 
         //ability flags
         bool lifeSteal = false;//gains life steal on meter moves
@@ -1180,15 +700,7 @@ namespace actors {
             momentumY = 0;
             EXmeter = 0;
             hp = 0;
-            for (int i = 0; i< moveset.size(); i++) {
-                animations.emplace_back(moveset[i]);
-            }
         }
-
-        Fighter(data::FighterBuilder &fb) : Actor(fb.moveFiles){
-
-        }
-
 
         void update() override {
             if (hitStun<=0 && blockStun<=0) {
@@ -1274,9 +786,6 @@ namespace actors {
                         if (walking == direction::NONE) {
                             passiveAnimation = animType::idle;
                         }
-                        if (endPassive) {
-                            endPassiveAnim();
-                        }
                     }
                 }
 
@@ -1286,17 +795,6 @@ namespace actors {
             }
             else{
 
-            }
-            passiveFrame++;
-            if ((int)activeAnimation >= 20 && false) {
-                activeFrame++;
-                currentFrame = activeFrame;
-            }
-            else {
-                currentFrame = passiveFrame;
-            }
-            if (passiveFrame >= animations[0].length-1) {
-                endPassive = true;
             }
             x += dx;
             y += dy;
@@ -1388,22 +886,6 @@ namespace actors {
             }
 
 
-
-        }
-        const sf::Texture* getTexture(int anim) {
-            return animations[anim].getTexture();
-        }
-
-        sf::IntRect getTextureRect(int anim, int frame) {
-            int fr = frame;
-            int an = anim;
-            if (frame == -1) {
-                fr = currentFrame;
-            }
-            if (anim == -1) {
-                an = currentID;
-            }
-            return animations[an].getFrame(fr);
         }
 
 
@@ -1441,25 +923,11 @@ namespace collision {
 }
 
 //TODO: plan Player class
-class Agent {
+class Player {
 private:
 protected:
 public:
 };
-
-class Player : public Agent {
-private:
-protected:
-public:
-};
-
-class AI : public Agent{
-private:
-protected:
-public:
-};
-
-
 
 
 /**GAMESTATES: bastardous amalgamations of various logic which
@@ -1468,12 +936,9 @@ namespace game {
     std::array<actors::Fighter, 2> fighters;
     class GameState {
     private:
-        std::array<graphics::Layer, 10> layers;
     protected:
     public:
-        GameState() {
-
-        }
+        GameState(){}
 
         virtual void enter(){}
 
@@ -1481,12 +946,7 @@ namespace game {
 
         virtual void update(){}
 
-        virtual void draw(sf::RenderWindow& window) {
-            for (auto layer : layers) {
-                window.draw(layer);
-            }
-
-        }
+        virtual void draw(sf::RenderWindow& window){}
 
         virtual void exit(){}
     };
@@ -1494,9 +954,6 @@ namespace game {
 
     class MenuState : public GameState {
     private:
-        std::vector<ui::Indicator> indicators = {};
-        std::vector<ui::Button> buttons = {};
-
     protected:
     public:
         MenuState() : GameState(){}
@@ -1688,21 +1145,24 @@ int main() {
     sf::Time timeSinceUpdate = sf::Time::Zero;
     sf::Time elapsedTime;
 
-    std::array<actors::Fighter, 2> fighters;
-    fighters[0] = actors::Fighter({"idle"});
-    sf::Texture temp;
-
     sf::Event event;
-    gameWindow.setFramerateLimit(0);
 
     while (gameWindow.isOpen()) {
-        gameWindow.clear(sf::Color::Transparent);
-
         while (gameWindow.pollEvent(event)) {
 
             // Check for the "Close" request (e.g., clicking the 'X')
             if (event.type == sf::Event::Closed) {
                 gameWindow.close();
+            }
+
+            sf::Time elapsed = clock.restart();
+            timeSinceUpdate += elapsed;
+
+            while (timeSinceUpdate > timePerFrame) {
+                timeSinceUpdate -= timePerFrame;
+                //fighters[1].update();
+                //fighters[2].update();
+                //st.update()
             }
 
             // Check for key presses (e.g., Escape to exit)
@@ -1711,31 +1171,9 @@ int main() {
                     gameWindow.close();
                 }
             }
-
-
-        }
-        elapsedTime = clock.restart();
-        timeSinceUpdate += elapsedTime;
-
-        sf::Sprite sprite;
-
-
-        while (timeSinceUpdate > timePerFrame) {
-            timeSinceUpdate -= timePerFrame;
-            fighters[0].update();
-            //fighters[2].update();
-            //st.update()
         }
 
-        temp = *fighters[0].getTexture(0);
-        sprite.setTexture(temp);
-        sprite.setScale(4.0f, 4.0f);
-        sprite.setTextureRect(fighters[0].getTextureRect(-1,-1));
-        sprite.setPosition(100,100);
-
-        gameWindow.draw(sprite);
-        //yay
-
+        gameWindow.clear(sf::Color::Transparent);
         gameWindow.display();
     }
 
