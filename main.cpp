@@ -1734,6 +1734,7 @@ int main() {
         sprite.setPosition(100,100);
 
         gameWindow.draw(sprite);
+        //yay
 
         gameWindow.display();
     }
