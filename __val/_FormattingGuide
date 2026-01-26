@@ -12,9 +12,9 @@ frameorder; axb; the number (a) of a frame (id b) in a row before the next uniqu
 startaltitude: -1 for crouching,  0 for grounded, 1 for aerial
 
 ID: numbered as follows:
-type (000-999 representing order in animType enum class), aerial or not (0 or 1), (input (000-991, aligned with a chart),
-ordinality (order in sequence, 0 to 9), variant(0-9, representing A-J)
+type (000-999 representing order in animType enum class), then
+ordinality (order in sequence, 0 to 9), then variant(0-9, representing A-J)
 
-ex: 019004000 represents g4a1A
+ex: 01910 represents g4a1A
 
 

@@ -1,4 +1,5 @@
-id:01010
+id:00000
+file:idle.png
 
 //main-line animation
 framenum:3
