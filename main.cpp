@@ -12,6 +12,9 @@
 #include <cmath>
 
 #include "pstl/parallel_backend_serial.h"
+#include "SFML/Window/Joystick.hpp"
+#include <unordered_map>
+#include <functional>
 
 /**
  DANGER-CAUTION-NOTICE-WARNING:
@@ -151,15 +154,22 @@ namespace util {
         RIGHT = 1
     };
 
-    enum class input {
-        HARD_BACK = 0,
-        DOWN_BACK = 1,
-        DOWN = 2,
-        DOWN_FRONT = 3,
-        BACK = 4,
-        NEUTRAL = 5,
-        FRONT = 6,
-        HARD_FRONT = 10,
+    enum inputType {
+        HARD_BACK,
+        DOWN_BACK,
+        DOWN,
+        DOWN_FRONT,
+        BACK,
+        NEUTRAL,
+        FRONT,
+        UP_BACK,
+        UP,
+        UP_FRONT,
+        HARD_FRONT,
+        NORMAL,
+        SPECIAL,
+        GRAB,
+        PARRY,
     };
 
     enum class hitboxType {
@@ -384,6 +394,7 @@ namespace data {
 namespace graphics {
 
     enum class layerID {
+        SKY = -1,
         BACKDROP1 = 0,
         BACKDROP2 = 1,
         BACKDROP3 = 2,
@@ -970,6 +981,14 @@ namespace animation {
         bool operator==(const Animation& other) const {
             return ID == other.ID;
         }
+
+        int getAnchor() {
+            return anchor;
+        }
+
+        int getWidth() {
+            return width;
+        }
     };
 
     class moveBuffer {
@@ -979,6 +998,11 @@ namespace animation {
     };
 }
 
+enum playerAction {
+    SELECT, DESELECT, PAUSE, WALK_LEFT, CROUCH, WALK_RIGHT, JUMP,
+    NORMAL, SPECIAL, PARRY, GRAB, UNKNOWN_ACTION, ACTION_COUNT
+
+};
 
 namespace actors {
     using util::direction;
@@ -1009,6 +1033,8 @@ namespace actors {
 
         }
     public:
+        std::array<int,3> outwardState;
+
         virtual ~Actor() = default;
 
         Actor() {
@@ -1035,6 +1061,9 @@ namespace actors {
         virtual void update() {
             x += dx;
             y += dy;
+            outwardState[0] = x;
+            outwardState[1] = y;
+            outwardState[2] = static_cast<int>(facing);
         }
 
         virtual void hit(collision::HitBox &box){}
@@ -1300,7 +1329,13 @@ namespace actors {
             }
             x += dx;
             y += dy;
+            outwardState[0] = x;
+            outwardState[1] = y;
+            outwardState[2] = static_cast<int>(facing);
         }
+        void doAction(std::vector<int> directionBuffer, std::vector<sf::Time> timeBuffer) {
+        }
+
         int getCombo() {
             return combo;
         }
@@ -1406,6 +1441,17 @@ namespace actors {
             return animations[an].getFrame(fr);
         }
 
+        sf::Vector2f getSpritePos(double camX, double camY) {
+            float Xd;
+            if (facing == direction::RIGHT) {
+                Xd = x - camX + animations[currentID].getAnchor();
+            }
+            else {
+                Xd = x - camX +animations[currentID].getWidth()- animations[currentID].getAnchor();
+            }
+            float Yd = y-camY + 40;
+            return {Xd, Yd};
+        }
 
 
 
@@ -1440,17 +1486,223 @@ namespace collision {
 
 }
 
+
+
+enum inputType {
+    KEY, MOUSE, JOYSTICK, BUTTON, INPUT_TYPE_COUNT
+};
+
+
 //TODO: plan Player class
 class Agent {
 private:
 protected:
 public:
 };
+struct Input {
+    inputType type;
+    int action;
+    bool press = true;
+};
 
 class Player : public Agent {
 private:
+    const std::array<std::array<std::vector<Input>, INPUT_TYPE_COUNT>, ACTION_COUNT> defaultActionMaps = {
+        //SELECT
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,sf::Keyboard::J}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,0}},
+            },
+        //DESELECT
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,sf::Keyboard::K}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,0}},
+            },
+        //PAUSE
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,sf::Keyboard::Escape}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,0}},
+            },
+        //WALK_LEFT
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,sf::Keyboard::A}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,0}},
+            },
+        //CROUCH
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,sf::Keyboard::S}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,0}},
+            },
+        //WALK_RIGHT
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,sf::Keyboard::D}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,0}},
+            },
+        //JUMP
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,sf::Keyboard::W}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,0}},
+            },
+        //NORMAL
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,sf::Keyboard::J}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,0}},
+            },
+        //SPECIAL
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,sf::Keyboard::K}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,0}},
+            },
+        //PARRY
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,sf::Keyboard::L}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,0}},
+            },
+        //GRAB
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,sf::Keyboard::H}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,0}},
+            },
+        //UNKNOWN_ACTION
+        std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
+            std::vector<Input>{{KEY,-1}},
+            std::vector<Input>{{MOUSE,-1}},
+            std::vector<Input>{{JOYSTICK,-1}},
+            std::vector<Input>{{BUTTON,-1}},
+            },
+    };
+    std::array<std::array<std::vector<Input>, INPUT_TYPE_COUNT>, ACTION_COUNT> actionMaps;
 protected:
 public:
+    const float maxInputTime = 0.5;
+    std::array<bool, sf::Keyboard::KeyCount> keysDown;
+    std::vector<Input> inputBuffer;
+    std::vector<sf::Time> inputTimes;
+    sf::Vector2f cursorPos;
+    sf::Vector2f selection;
+    //NOTE: -1 means NO change in input direction; it is added to keep input directions in sync.
+    std::vector<int> inputDirections;
+
+    Player() {
+        inputDirections.resize(0);
+        inputBuffer.resize(0);
+        inputTimes.resize(0);
+        inputDirections.reserve(20);
+        inputBuffer.reserve(20);
+        inputTimes.reserve(20);
+        //initialize action maps to default values
+        for (int action = 0; action<ACTION_COUNT; action++) {
+            for (int inputList = 0; inputList < INPUT_TYPE_COUNT; inputList++) {
+                for (int i = 0; i < defaultActionMaps[action][inputList].size(); i++) {
+                    actionMaps[action][inputList].push_back(defaultActionMaps[action][inputList][i]);
+                }
+            }
+        }
+
+        //initialize keysDown
+        for (int i = 0; i < sf::Keyboard::KeyCount; i++) {
+            keysDown[i] = false;
+        }
+
+        inputBuffer.emplace_back(INPUT_TYPE_COUNT);
+        inputTimes.emplace_back(sf::Time::Zero);
+    }
+
+    void addInput(sf::Clock &clock, int id, inputType type, bool press) {
+        int currDir = 5;
+        inputBuffer.emplace_back(type, id, press);
+        inputTimes.push_back(clock.getElapsedTime());
+        if (type == KEY) {
+            keysDown[id] = press;
+            if (keysDown[actionMaps[JUMP][KEY][0].action] ||
+                keysDown[actionMaps[JUMP][BUTTON][0].action] ||
+                keysDown[actionMaps[JUMP][JOYSTICK][0].action]) {
+                currDir += 3;
+                }
+
+            if (keysDown[actionMaps[CROUCH][KEY][0].action] ||
+                keysDown[actionMaps[CROUCH][BUTTON][0].action] ||
+                keysDown[actionMaps[CROUCH][JOYSTICK][0].action]) {
+                currDir -= 3;
+                }
+
+            if (keysDown[actionMaps[WALK_LEFT][KEY][0].action] ||
+                keysDown[actionMaps[WALK_LEFT][BUTTON][0].action] ||
+                keysDown[actionMaps[WALK_LEFT][JOYSTICK][0].action]) {
+                currDir += 1;
+                }
+
+            if (keysDown[actionMaps[WALK_RIGHT][KEY][0].action] ||
+                keysDown[actionMaps[WALK_RIGHT][BUTTON][0].action] ||
+                keysDown[actionMaps[WALK_RIGHT][JOYSTICK][0].action]) {
+                currDir -= 1;
+                }
+
+        }
+        std::cout<< "added an imput methinks"<<std::endl;
+
+
+        if (inputDirections.empty() || currDir != inputDirections.at(inputDirections.size()-1)) {
+            inputDirections.push_back(currDir);
+        }
+        else {
+            inputDirections.push_back(-1);
+        }
+
+    }
+    void updateCombatInputs(const sf::Clock & clock) {
+        int size = inputBuffer.size();
+        for (int i  =0; i< size; i++) {
+            //std::cout<<inputTimes.size()<<std::endl;
+
+            if (clock.getElapsedTime() - inputTimes[i] > sf::seconds(maxInputTime)) {
+                inputDirections.erase(inputDirections.begin() + i);
+                inputTimes.erase(inputTimes.begin() + i);
+                inputBuffer.erase(inputBuffer.begin() + i);
+                size--;
+                i--;
+            }
+        }
+    }
+
+    void printKeys() {
+        for (int i = 0; i < sf::Keyboard::KeyCount; i++) {
+            std::string code = sf::Keyboard::getDescription(sf::Keyboard::delocalize(sf::Keyboard::Key(i)));
+            std::cout<<code<<":"<<keysDown[i]<<" ";
+        }
+        std::cout<<std::endl;
+    }
+
+    void printDirections() {
+        int size = inputDirections.size();
+        for (int i = 0; i< size; i++) {
+            std::cout<<inputDirections.at(i)<<" ";
+        }
+        std::cout<<std::endl;
+    }
+
 };
 
 class AI : public Agent{
@@ -1465,21 +1717,21 @@ public:
 /**GAMESTATES: bastardous amalgamations of various logic which
  *can vary based upon the current game state**/
 namespace game {
-    std::array<actors::Fighter, 2> fighters;
     class GameState {
     private:
         std::array<graphics::Layer, 10> layers;
+        sf::Time timer;
+        std::array<Player,2> players;
+        bool isSinglePlayer = false;
     protected:
     public:
-        GameState() {
-
-        }
+        GameState() = default;
 
         virtual void enter(){}
 
-        virtual void handleEvents(sf::Event event){}
+        virtual void handleEvents(const sf::Event &event, sf::Clock &clock){}
 
-        virtual void update(){}
+        virtual void update(sf::Clock & clock){}
 
         virtual void draw(sf::RenderWindow& window) {
             for (auto layer : layers) {
@@ -1489,6 +1741,8 @@ namespace game {
         }
 
         virtual void exit(){}
+
+        virtual ~GameState() = default;
     };
 
 
@@ -1503,13 +1757,15 @@ namespace game {
 
         void enter() override{}
 
-        void handleEvents(sf::Event event) override{}
+        void handleEvents(const sf::Event &event, sf::Clock &clock) override{}
 
-        void update() override {}
+        void update(sf::Clock &clock) override {}
 
         void draw(sf::RenderWindow& window) override {}
 
         void exit() override{}
+
+        ~MenuState() override {}
     };
 
     class MainMenu : public MenuState {
@@ -1520,15 +1776,17 @@ namespace game {
 
         void enter() override{}
 
-        void handleEvents(sf::Event event) override{}
+        void handleEvents(const sf::Event &event, sf::Clock &clock) override{}
 
-        void update() override {
+        void update(sf::Clock &clock) override {
 
         }
 
         void draw(sf::RenderWindow& window) override {}
 
         void exit() override{}
+
+        ~MainMenu() override {}
     };
 
     class Settings : public MenuState {
@@ -1539,13 +1797,15 @@ namespace game {
 
         void enter() override{}
 
-        void handleEvents(sf::Event event) override{}
+        void handleEvents(const sf::Event &event, sf::Clock &clock) override{}
 
-        void update() override {}
+        void update(sf::Clock &clock) override {}
 
         void draw(sf::RenderWindow& window) override {}
 
         void exit() override{}
+
+        ~Settings() override {}
     };
 
     class FighterCreate : public MenuState {
@@ -1556,13 +1816,15 @@ namespace game {
 
         void enter() override{}
 
-        void handleEvents(sf::Event event) override{}
+        void handleEvents(const sf::Event &event, sf::Clock &clock) override{}
 
-        void update() override {}
+        void update(sf::Clock &clock) override {}
 
         void draw(sf::RenderWindow& window) override {}
 
         void exit() override{}
+
+        ~FighterCreate() override {}
     };
 
 
@@ -1574,13 +1836,15 @@ namespace game {
 
         void enter() override{}
 
-        void handleEvents(sf::Event event) override{}
+        void handleEvents(const sf::Event &event, sf::Clock &clock) override{}
 
-        void update() override {}
+        void update(sf::Clock &clock) override {}
 
         void draw(sf::RenderWindow& window) override {}
 
         void exit() override{}
+
+        ~Shop() override {}
     };
 
 
@@ -1592,31 +1856,66 @@ namespace game {
 
         void enter() override{}
 
-        void handleEvents(sf::Event event) override{}
+        void handleEvents(const sf::Event &event, sf::Clock &clock) override{}
 
-        void update() override {}
+        void update(sf::Clock &clock) override {}
 
         void draw(sf::RenderWindow& window) override {}
 
         void exit() override{}
+
+        ~TrainingShop() override {}
     };
 
 
     class CombatState : public GameState {
     private:
+        sf::Texture temp;
+        sf::Sprite sprite;
+        std::array<actors::Fighter, 2> fighters;
+        Player player = Player();
     protected:
     public:
-        CombatState() : GameState(){}
+        CombatState() : GameState() {
+            fighters[0] = actors::Fighter({"idle"});
+            temp = sf::Texture();
+            sprite = sf::Sprite();
+
+        }
 
         void enter() override{}
 
-        void handleEvents(sf::Event event) override{}
+        void handleEvents(const sf::Event &event, sf::Clock &clock) override {
+            if (event.type == sf::Event::KeyPressed) {
+                player.addInput(clock, event.key.code, KEY, true);
+                //player.printKeys();
+            }
+            if (event.type == sf::Event::KeyReleased) {
+                player.addInput(clock, event.key.code, KEY, false);
+                //player.printKeys();
+            }
+        }
 
-        void update() override {}
+        void update(sf::Clock &clock) override {
+            fighters[0].update();
+            player.updateCombatInputs(clock);
+            player.printDirections();
+        }
 
-        void draw(sf::RenderWindow& window) override {}
+        void draw(sf::RenderWindow& window) override {
+            sf::Vector2f pos = fighters[0].getSpritePos(0,0);
+            //std::cout << pos.x << ", " << pos.y << std::endl;
+            temp = *fighters[0].getTexture(0);
+            sprite.setTexture(temp);
+            sprite.setScale(4.0f * fighters[0].outwardState[2], 4.0f);
+            sprite.setTextureRect(fighters[0].getTextureRect(-1,-1));
+            sprite.setPosition(pos.x*4,graphics::windowSize.y-pos.y*4);
+            window.draw(sprite);
+        }
 
         void exit() override{}
+
+        ~CombatState() override {}
     };
 
 
@@ -1628,13 +1927,15 @@ namespace game {
 
         void enter() override{}
 
-        void handleEvents(sf::Event event) override{}
+        void handleEvents(const sf::Event &event, sf::Clock &clock) override{}
 
-        void update() override {}
+        void update(sf::Clock &clock) override {}
 
         void draw(sf::RenderWindow& window) override {}
 
         void exit() override{}
+
+        ~OfflineCombat() override {};
     };
 
 
@@ -1646,13 +1947,15 @@ namespace game {
 
         void enter() override{}
 
-        void handleEvents(sf::Event event) override{}
+        void handleEvents(const sf::Event &event, sf::Clock &clock) override{}
 
-        void update() override {}
+        void update(sf::Clock &clock) override {}
 
         void draw(sf::RenderWindow& window) override {}
 
         void exit() override{}
+
+        ~TrainingCombat() override {}
     };
 
 
@@ -1664,13 +1967,15 @@ namespace game {
 
         void enter() override{}
 
-        void handleEvents(sf::Event event) override{}
+        void handleEvents(const sf::Event &event, sf::Clock &clock) override{}
 
-        void update() override {}
+        void update(sf::Clock &clock) override {}
 
         void draw(sf::RenderWindow& window) override {}
 
         void exit() override{}
+
+        ~OnlineCombat() override {};
     };
 }
 
@@ -1685,15 +1990,15 @@ int main() {
 
     const sf::Time timePerFrame = sf::seconds(1.f/60.f);
     sf::Clock clock;
+    sf::Clock clock2;
+    clock2.restart();
     sf::Time timeSinceUpdate = sf::Time::Zero;
     sf::Time elapsedTime;
 
-    std::array<actors::Fighter, 2> fighters;
-    fighters[0] = actors::Fighter({"idle"});
-    sf::Texture temp;
-
     sf::Event event;
     gameWindow.setFramerateLimit(0);
+
+    game::GameState* gs = new game::CombatState();
 
     while (gameWindow.isOpen()) {
         gameWindow.clear(sf::Color::Transparent);
@@ -1704,40 +2009,29 @@ int main() {
             if (event.type == sf::Event::Closed) {
                 gameWindow.close();
             }
-
-            // Check for key presses (e.g., Escape to exit)
-            if (event.type == sf::Event::KeyPressed) {
-                if (event.key.code == sf::Keyboard::Escape) {
-                    gameWindow.close();
-                }
-            }
-
+            gs->handleEvents(event, clock2);
 
         }
         elapsedTime = clock.restart();
         timeSinceUpdate += elapsedTime;
 
-        sf::Sprite sprite;
+
 
 
         while (timeSinceUpdate > timePerFrame) {
             timeSinceUpdate -= timePerFrame;
-            fighters[0].update();
+            gs->update(clock2);
             //fighters[2].update();
             //st.update()
         }
 
-        temp = *fighters[0].getTexture(0);
-        sprite.setTexture(temp);
-        sprite.setScale(4.0f, 4.0f);
-        sprite.setTextureRect(fighters[0].getTextureRect(-1,-1));
-        sprite.setPosition(100,100);
-
-        gameWindow.draw(sprite);
         //yay
+
+        gs->draw(gameWindow);
 
         gameWindow.display();
     }
 
+    delete gs;
     return 0;
 }
