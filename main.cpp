@@ -15,6 +15,8 @@
 #include "SFML/Window/Joystick.hpp"
 #include <unordered_map>
 #include <functional>
+#include <algorithm>
+#include <vector>
 
 /**
  DANGER-CAUTION-NOTICE-WARNING:
@@ -148,6 +150,112 @@ namespace util {
         return tokens;
     }
 
+    template <typename T>
+    class circularBuffer {
+    private:
+        std::vector<T> buffer;
+        int headIdx = 0;
+        int tailIdx = 0;
+        int capacity = 0;
+    public:
+        circularBuffer(int size) {
+            capacity = size;
+            buffer.assign(capacity + 1, T{});
+        }
+        T read() {
+            T b = buffer[tailIdx];
+            tailIdx = (tailIdx + 1) %(capacity + 1);
+            return b;
+        }
+
+        void write(T value) {
+            buffer[headIdx] = value;
+            headIdx = (headIdx + 1) %(capacity + 1);
+        }
+
+        void writeWithOverWrite(T value) {
+            buffer[headIdx] = value;
+            headIdx = (headIdx + 1) %(capacity + 1);
+            if (headIdx == tailIdx) {
+                tailIdx = (tailIdx + 1) %(capacity + 1);
+            }
+        }
+
+        T peek(int idx) {
+            int count = (headIdx - tailIdx + (capacity + 1)) % (capacity + 1);
+
+            if (idx < 0 || idx >= count) {
+                throw std::out_of_range("Index out of buffer bounds");
+            }
+
+            return buffer[(tailIdx + idx) % (capacity + 1)];
+        }
+
+        T peekLast() {
+            if (isEmpty()) {
+                throw std::out_of_range("Index out of buffer bounds");
+            }
+
+            return buffer[(headIdx + capacity) % (capacity + 1)];
+        }
+
+        std::vector<T> peekFull() {
+            std::vector<T> vect;
+            int current = tailIdx;
+
+            vect.reserve(capacity);
+            for (;current!=headIdx; current = (current + 1) % (capacity + 1)) {
+                vect.push_back(buffer[current]);
+            }
+            return vect;
+        }
+        std::vector<T> peekFullBack() {
+            std::vector<T> vect;
+            int current = (headIdx + capacity) % (capacity + 1);
+
+            vect.reserve(capacity);
+            for (;current!=tailIdx; current = (current + capacity) % (capacity + 1)) {
+                vect.push_back(buffer[current]);
+            }
+            return vect;
+        }
+
+        bool isFull() {
+            return (headIdx + 1) % (capacity + 1) == tailIdx;
+        }
+
+        bool isEmpty() {
+            return  headIdx == tailIdx;
+        }
+
+        bool clear() {
+            while (!isEmpty()) {
+                read();
+            }
+
+        }
+
+
+    };
+
+    bool endsWith(const std::vector<int>& set, const std::vector<int>& subset) {
+        if (subset.size() > set.size()) {
+            return false;
+        }
+
+        return std::equal(subset.begin(), subset.end(), set.end() - subset.size());
+    }
+    bool endsWithFromIndex(const std::vector<int>& set, const std::vector<int>& subset, int startIndex) {
+        if (subset.size() > set.size() - startIndex + 1 || subset.size() - startIndex <= 0) {
+            return false;
+        }
+
+        //std::cout<<subset[startIndex]<<" "<<set[set.size() - startIndex + 1]<<std::endl;
+        return std::equal(subset.begin() + startIndex, subset.end(), set.end() - subset.size() + startIndex);
+    }
+
+
+
     enum class direction {
         LEFT = -1,
         NONE = 0,
@@ -155,7 +263,7 @@ namespace util {
     };
 
     enum inputType {
-        HARD_BACK,
+        HARD_BACK = 0,
         DOWN_BACK,
         DOWN,
         DOWN_FRONT,
@@ -170,6 +278,10 @@ namespace util {
         SPECIAL,
         GRAB,
         PARRY,
+        G,
+        A,
+        NO_INPUT,
+        ANY_INPUT
     };
 
     enum class hitboxType {
@@ -249,7 +361,7 @@ namespace animation {
      *animations such as jab1 and jab2 are delineated by an id variable
      *in the animation.
      */
-    enum class animType {
+    enum animType {
         //passive animations and basic movement
         NONE = -1,
         idle = 0,
@@ -269,50 +381,194 @@ namespace animation {
         justblock = 15,
         block = 16,
         blocklow = 17,
+        air = 18,
+        land = 19,
 
-        //grounded normals
-        g7a = 22,g8a = 23,g9a = 24,
-        g4a = 19,g5a = 20,g6a = 21,
-        g1a = 16,g2a = 17,g3a = 18,
+        g1a = 16, g2a, g3a,
+        g4a, g5a, g6a,
+        g7a, g8a, g9a,
 
-        //normal aerials
-        j7a = 22 + 9,j8a = 23 + 9,j9a = 24 + 9,
-        j4a = 19 + 9,j5a = 20 + 9,j6a = 21 + 9,
-        j1a = 16 + 9,j2a = 17 + 9,j3a = 18 + 9,
+        // --- Aerial normals (auto: 25–33) ---
+        j1a, j2a, j3a,
+        j4a, j5a, j6a,
+        j7a, j8a, j9a,
 
-        //grounded specials
-        g7b = 22 + 18,g8b = 23 + 18,g9b = 24 + 18,
-        g4b = 19 + 18,g5b = 20 + 18,g6b = 21 + 18,
-        g1b = 16 + 18,g2b = 17 + 18,g3b = 18 + 18,
+        // --- Grounded specials (auto: 34–42) ---
+        g1b, g2b, g3b,
+        g4b, g5b, g6b,
+        g7b, g8b, g9b,
 
-        //aerial specials
-        j7b = 22 + 27,j8b = 23 + 27,j9b = 24 + 27,
-        j4b = 19 + 27,j5b = 20 + 27,j6b = 21 + 27,
-        j1b = 16 + 27,j2b = 17 + 27,j3b = 18 + 27,
+        // --- Aerial specials (auto: 43–51) ---
+        j1b, j2b, j3b,
+        j4b, j5b, j6b,
+        j7b, j8b, j9b,
 
-        //space from 52-80 reserved for specialized inputs
-        g236 = 52, g214 = 53, g41236 = 54, g623 = 55,
+        // --- Reserved special inputs (explicit block 52–83) ---
+        g236a = 52, g214a,
+        g236b, g214b,
+        j236a, j214a,
+        j236b, j214b,
 
+        g623a, g412a,
+        g623b, g412b,
+        j623a, j412a,
+        j623b, j412b,
 
-        //grabs
-        g4c = 81, g6c = 82,
+        g632a, g421a,
+        g632b, g421b,
+        j632a, j421a,
+        j632b, j421b,
 
-        //grab reaction
-        grabreaction = 83,
+        g41236a, g63214a,
+        g41236b, g63214b,
+        j41236a, j63214a,
+        j41236b, j63214b,
+
+        // --- Grabs (auto: 85–87) ---
+        g4c = 85, g5c, g6c,
+
+        grabthrow = 88,
+
+        //grab reactions
+        grabreaction = 89,
+        throwreaction = 90,
 
         //hit reactions
-        hit00 = 90, hit01 = 91, hit02 = 92,
-        hit10 = 93, hit11 = 94, hit12 = 95,
-        hit20 = 96, hit21 = 97, hit22 = 98,
+        hit00 = 107, hit01 = 108, hit02 = 109,
+        hit10 = 104, hit11 = 105, hit12 = 106,
+        hit20 = 101, hit21 = 102, hit22 = 103,
 
-        jhit0 = 99, jhit1 = 100, jhit2 = 101,
+        jhit0 = 110, jhit1 = 111, jhit2 = 112,
 
+        hitSpec1 = 113, hitSpec2 = 114, hitSpec3 = 115,
+
+        knockDown1 = 116, knockDown2 = 117,
+        downLand = 118,
+
+        getupG1 = 119, getupG2 = 120, getupG3 = 121, getupG4 = 122,
+        getupA1 = 123,
+
+        parry = 124,
+        burst = 125,
+
+        ANIM_TYPE_COUNT
 
     };
 }
 
 //stores data for DTOs
 namespace data {
+    std::array<std::vector<int>, (int)animation::ANIM_TYPE_COUNT> inputRefs;
+
+    /*used to initialize the array of inputs without some
+     *excessive braced-init list that I couldn't read*/
+    void initInputRefs() {
+        using animation::animType;
+        using util::inputType::DOWN_BACK;
+        using util::inputType::DOWN;
+        using util::inputType::DOWN_FRONT;
+        using util::inputType::BACK;
+        using util::inputType::NEUTRAL;
+        using util::inputType::FRONT;
+        using util::inputType::UP_BACK;
+        using util::inputType::UP;
+        using util::inputType::UP_FRONT;
+        using util::inputType::NORMAL;
+        using util::inputType::SPECIAL;
+        using util::inputType::PARRY;
+        using util::inputType::GRAB;
+        using util::inputType::G;
+        using util::inputType::A;
+        using util::inputType::NO_INPUT;
+
+        for (int i = 0; i < animation::ANIM_TYPE_COUNT; i++) {
+            inputRefs[i].reserve(8);
+        }
+
+        inputRefs[animation::idle] = {G, NEUTRAL};
+
+        inputRefs[animation::walk1] = {G, FRONT};
+        inputRefs[animation::walk2] = {G, BACK};
+
+        inputRefs[animation::jump0] = {G, UP_BACK};
+        inputRefs[animation::jump1] = {G, UP};
+        inputRefs[animation::jump2] = {G, UP_FRONT};
+        inputRefs[animation::idle] = {G, NEUTRAL};
+
+        inputRefs[animation::crouch] = {G, NEUTRAL, DOWN};
+        inputRefs[animation::crouched] = {G, DOWN};
+        inputRefs[animation::uncrouch] = {G, DOWN, NEUTRAL};
+
+        inputRefs[animation::dash1] = {G, FRONT, NEUTRAL, FRONT};
+        inputRefs[animation::dash2] = {G, BACK, NEUTRAL, BACK};
+        inputRefs[animation::dash3] = {A, FRONT, NEUTRAL, FRONT};
+        inputRefs[animation::dash4] = {A, BACK, NEUTRAL, BACK};
+
+        inputRefs[animation::justblock] = {G, PARRY};
+        inputRefs[animation::block] = {G, BACK};
+        inputRefs[animation::blocklow] = {G, DOWN_BACK};
+
+        inputRefs[animation::air] = {A, NO_INPUT};
+        inputRefs[animation::land] = {A, NO_INPUT};
+
+
+        inputRefs[animation::g7a] = {G, UP_BACK, NORMAL};   inputRefs[animation::g8a] = {G, UP, NORMAL};        inputRefs[animation::g9a] = {G, UP_FRONT, NORMAL};
+        inputRefs[animation::g4a] = {G, BACK, NORMAL};      inputRefs[animation::g5a] = {G, NEUTRAL, NORMAL};   inputRefs[animation::g6a] = {G, FRONT, NORMAL};
+        inputRefs[animation::g1a] = {G, DOWN_BACK, NORMAL}; inputRefs[animation::g2a] = {G, DOWN, NORMAL};      inputRefs[animation::g3a] = {G, DOWN_FRONT, NORMAL};
+
+        inputRefs[animation::j7a] = {A, UP_BACK, NORMAL};   inputRefs[animation::j8a] = {A, UP, NORMAL};        inputRefs[animation::j9a] = {A, UP_FRONT, NORMAL};
+        inputRefs[animation::j4a] = {A, BACK, NORMAL};      inputRefs[animation::j5a] = {A, NEUTRAL, NORMAL};   inputRefs[animation::j6a] = {A, FRONT, NORMAL};
+        inputRefs[animation::j1a] = {A, DOWN_BACK, NORMAL}; inputRefs[animation::j2a] = {A, DOWN, NORMAL};      inputRefs[animation::j3a] = {A, DOWN_FRONT, NORMAL};
+
+        inputRefs[animation::g7b] = {G, UP_BACK, NORMAL};   inputRefs[animation::g8b] = {G, UP, NORMAL};        inputRefs[animation::g9b] = {G, UP_FRONT, NORMAL};
+        inputRefs[animation::g4b] = {G, BACK, NORMAL};      inputRefs[animation::g5b] = {G, NEUTRAL, NORMAL};   inputRefs[animation::g6b] = {G, FRONT, NORMAL};
+        inputRefs[animation::g1b] = {G, DOWN_BACK, NORMAL}; inputRefs[animation::g2b] = {G, DOWN, NORMAL};      inputRefs[animation::g3b] = {G, DOWN_FRONT, NORMAL};
+
+        inputRefs[animation::j7b] = {A, UP_BACK, SPECIAL};   inputRefs[animation::j8b] = {A, UP, SPECIAL};        inputRefs[animation::j9b] = {A, UP_FRONT, SPECIAL};
+        inputRefs[animation::j4b] = {A, BACK, SPECIAL};      inputRefs[animation::j5b] = {A, NEUTRAL, SPECIAL};   inputRefs[animation::j6b] = {A, FRONT, SPECIAL};
+        inputRefs[animation::j1b] = {A, DOWN_BACK, SPECIAL}; inputRefs[animation::j2b] = {A, DOWN, SPECIAL};      inputRefs[animation::j3b] = {A, DOWN_FRONT, SPECIAL};
+
+
+        inputRefs[animation::g236a] = {G, DOWN, DOWN_FRONT, FRONT ,NORMAL}; inputRefs[animation::g214a] = {G, DOWN, DOWN_BACK, BACK ,NORMAL};
+        inputRefs[animation::g623a] = {G, FRONT, DOWN, DOWN_FRONT ,NORMAL}; inputRefs[animation::g412a] = {G, BACK, DOWN_BACK, DOWN ,NORMAL};
+        inputRefs[animation::g632a] = {G, FRONT, DOWN_FRONT, DOWN ,NORMAL}; inputRefs[animation::g421a] = {G, BACK, DOWN, DOWN_BACK ,NORMAL};
+        inputRefs[animation::g41236a] = {G, BACK, DOWN_BACK, DOWN, DOWN_FRONT, FRONT ,NORMAL};
+        inputRefs[animation::g63214a] = {G, FRONT, DOWN_FRONT, DOWN, DOWN_BACK, BACK ,NORMAL};
+
+        inputRefs[animation::g236b] = {G, DOWN, DOWN_FRONT, FRONT ,SPECIAL}; inputRefs[animation::g214b] = {G, DOWN, DOWN_BACK, BACK ,SPECIAL};
+        inputRefs[animation::g623b] = {G, FRONT, DOWN, DOWN_FRONT ,SPECIAL}; inputRefs[animation::g412b] = {G, BACK, DOWN_BACK, DOWN ,SPECIAL};
+        inputRefs[animation::g632b] = {G, FRONT, DOWN_FRONT, DOWN ,SPECIAL}; inputRefs[animation::g421b] = {G, BACK, DOWN, DOWN_BACK ,SPECIAL};
+        inputRefs[animation::g41236b] = {G, BACK, DOWN_BACK, DOWN, DOWN_FRONT, FRONT ,SPECIAL};
+        inputRefs[animation::g63214b] = {G, FRONT, DOWN_FRONT, DOWN, DOWN_BACK, BACK ,SPECIAL};
+
+        inputRefs[animation::j236a] = {A, DOWN, DOWN_FRONT, FRONT ,NORMAL}; inputRefs[animation::j214a] = {A, DOWN, DOWN_BACK, BACK ,NORMAL};
+        inputRefs[animation::j623a] = {A, FRONT, DOWN, DOWN_FRONT ,NORMAL}; inputRefs[animation::j412a] = {A, BACK, DOWN_BACK, DOWN ,NORMAL};
+        inputRefs[animation::j632a] = {A, FRONT, DOWN_FRONT, DOWN ,NORMAL}; inputRefs[animation::j421a] = {A, BACK, DOWN, DOWN_BACK ,NORMAL};
+        inputRefs[animation::j41236a] = {A, BACK, DOWN_BACK, DOWN, DOWN_FRONT, FRONT ,NORMAL};
+        inputRefs[animation::j63214a] = {A, FRONT, DOWN_FRONT, DOWN, DOWN_BACK, BACK ,NORMAL};
+
+        inputRefs[animation::j236b] = {A, DOWN, DOWN_FRONT, FRONT ,SPECIAL}; inputRefs[animation::j214b] = {A, DOWN, DOWN_BACK, BACK ,SPECIAL};
+        inputRefs[animation::j623b] = {A, FRONT, DOWN, DOWN_FRONT ,SPECIAL}; inputRefs[animation::j412b] = {A, BACK, DOWN_BACK, DOWN ,SPECIAL};
+        inputRefs[animation::j632b] = {A, FRONT, DOWN_FRONT, DOWN ,SPECIAL}; inputRefs[animation::j421b] = {A, BACK, DOWN, DOWN_BACK ,SPECIAL};
+        inputRefs[animation::j41236b] = {A, BACK, DOWN_BACK, DOWN, DOWN_FRONT, FRONT ,SPECIAL};
+        inputRefs[animation::j63214b] = {A, FRONT, DOWN_FRONT, DOWN, DOWN_BACK, BACK ,SPECIAL};
+
+
+        inputRefs[animation::g4c] = {G, BACK, GRAB};
+        inputRefs[animation::g5c] = {G, NEUTRAL, GRAB};
+        inputRefs[animation::g6c] = {G, FRONT, GRAB};
+        inputRefs[animation::grabthrow] = {G, NO_INPUT};
+        inputRefs[animation::grabreaction] = {G, NO_INPUT};
+        inputRefs[animation::throwreaction] = {G, NO_INPUT};
+
+
+        inputRefs[animation::hit20] = {G, NO_INPUT}; inputRefs[animation::hit21] = {G, NO_INPUT}; inputRefs[animation::hit22] = {G, NO_INPUT};
+        inputRefs[animation::hit10] = {G, NO_INPUT}; inputRefs[animation::hit11] = {G, NO_INPUT}; inputRefs[animation::hit12] = {G, NO_INPUT};
+        inputRefs[animation::hit00] = {G, NO_INPUT}; inputRefs[animation::hit01] = {G, NO_INPUT}; inputRefs[animation::hit02] = {G, NO_INPUT};
+
+        inputRefs[animation::jhit0] = {A, NO_INPUT}; inputRefs[animation::jhit1] = {A, NO_INPUT}; inputRefs[animation::jhit2] = {A, NO_INPUT};
+    }
+
     //the ids of stats in stats arrays
     enum statID {maxHP, speed, airSpeed, grabMult, meleeMult, weaponMult,
         projectileMult, meterMult, maxStamina, meleeRes, projectileRes,
@@ -856,6 +1112,8 @@ namespace animation {
         int ID = 0;
         int wrapperIndex = 0;
 
+        bool active = false;
+
         animType animType;
     public:
         std::vector<graphics::layerID> layers;//the layers covered by the animation
@@ -871,6 +1129,7 @@ namespace animation {
             xOffset = 0;
             yOffset = 0;
             exist = false;
+            active = false;
             length = 0;
             TextureWrapper texture;
 
@@ -917,6 +1176,11 @@ namespace animation {
                             wrapperIndex = textures.size() - 1;
                         }
                     }
+
+                    if (flag[0] == "active") {
+                        active = stoi(flag[1]);
+                    }
+
                     // sets frameNum
                     if (flag[0] == "framenum") {
                         frameNum = std::stoi(flag[1]);
@@ -945,6 +1209,7 @@ namespace animation {
                     }
                     else if (flag[0] == "id") {
                         ID = std::stoi(flag[1]);
+                        animType =static_cast<animation::animType>(ID/100);
                     }
 
                 }
@@ -962,12 +1227,12 @@ namespace animation {
 
         ~Animation() {}
 
-       const sf::Texture* getTexture() {
+       [[nodiscard]] const sf::Texture* getTexture() const{
             return &textures.at(wrapperIndex).texture;
         }
 
-        sf::IntRect getFrame(int frame) {
-            return sf::IntRect(xOffset, yOffset + height * frameorder[frame], width, height);
+        [[nodiscard]] sf::IntRect getFrame(int frame) const{
+            return {xOffset, yOffset + height * frameorder[frame], width, height};
         }
 
         bool operator<(const Animation& other) const {
@@ -982,12 +1247,32 @@ namespace animation {
             return ID == other.ID;
         }
 
-        int getAnchor() {
+        [[nodiscard]] int getAnchor() const{
             return anchor;
         }
 
-        int getWidth() {
+        [[nodiscard]] int getWidth() const{
             return width;
+        }
+        [[nodiscard]] bool getActive() const{
+            return active;
+        }
+
+        [[nodiscard]] enum animType getAnimType() const{
+            return animType;
+        }
+
+        [[nodiscard]] int getID() const {
+            return ID;
+        }
+        [[nodiscard]] int getInputID() const {
+            return ID/100;
+        }
+        [[nodiscard]] int getOrdinality() const {
+            return ID%100/10;
+        }
+        [[nodiscard]] int getVariant() const {
+            return ID%10;
         }
     };
 
@@ -1003,6 +1288,9 @@ enum playerAction {
     NORMAL, SPECIAL, PARRY, GRAB, UNKNOWN_ACTION, ACTION_COUNT
 
 };
+namespace agents {
+    class Player;
+}
 
 namespace actors {
     using util::direction;
@@ -1054,6 +1342,8 @@ namespace actors {
             for (int i = 0; i < animList.size(); i++) {
                 animations.emplace_back(animList[i]);
             }
+
+
         }
 
 
@@ -1069,15 +1359,26 @@ namespace actors {
         virtual void hit(collision::HitBox &box){}
     };
 
+    struct moveRequest {
+        int moveID = -1;
+        sf::Time time = sf::Time::Zero;
+        util::inputType state = util::inputType::NO_INPUT;
+
+        void clear() { moveID = -1; time = sf::Time::Zero;}
+        bool isValid() const { return moveID != -1; }
+    };
+
     //Any character TODO: plan Fighter class
     class Fighter;
-    
+
     class Fighter: public Actor {
     friend class collision::CollisionBox;
     private:
         Fighter* enemy = this;
     protected:
         //general gameplay flags and values
+        std::array<int, 9> inputsList;
+        int numUsedInputs = 0;
         int hitStun = 0;//frames of hitstun left
         int blockStun = 0;//frames of blockstun left
         int knockedDown = 0;//frames of knockdown left
@@ -1098,7 +1399,7 @@ namespace actors {
         bool crouching = false;//whether the fighter is crouching
         bool uncrouching = false;//whether the fighter is uncrouching
         bool crouched = false;//whether the fighter is crouched
-        bool actionable = false;//whether the fighter is capable of performing actions
+        bool actionable = true;//whether the fighter is capable of performing actions
         bool inMove = false;//whether the fighter is currently in an active move
         bool isDead = false;//whether the fighter is K.O'd
 
@@ -1118,8 +1419,8 @@ namespace actors {
         animType passiveAnimation = animType::NONE;//the type of the passive animation
         animType currentAnimation = animType::NONE;//the type of the current animation
         animType lastAnimation = animType::NONE;//the type of the last animation
-        int activeID = 0;//the ID of the active animation
-        int passiveID = 0;//the ID of the passive animation
+        int activeID = -1;//the ID of the active animation
+        int passiveID = 1;//the ID of the passive animation
         int currentID = 0;//the ID of the current animation
         int lastID = 0;//the ID of the last animation
         int currentIndex = 0;//the index of the current animation
@@ -1164,6 +1465,9 @@ namespace actors {
         bool fieryMelee = false;//melee attacks burn the opponent, dealing a small amount of extra damage
         bool icyWeapons = false;//weapons freeze the opponent, slowing down their movement
 
+        moveRequest currentRequest;
+        bool callForQueueClear = false;
+
         //misc.
         void endPassiveAnim(bool reset = false) {
             endPassive = false;
@@ -1178,46 +1482,191 @@ namespace actors {
             endActive = false;
             activeFrame = 0;
             activeAnimation = animType::NONE;
-
+            activeID = -1;
+            actionable = true;
         }
 
-
-
-    public:
-        Fighter() : Actor() {
-            hitStun = 0;
-            blockStun = 0;
-            knockedDown = 0;
-            knockBackTime = 0;
-            knockBackX = 0;
-            knockBackY = 0;
-            momentumX = 0;
-            momentumY = 0;
-            EXmeter = 0;
-            hp = 0;
+        void cullDupeInputs(std::vector<int> &inputs) {
+            int last = 0;
+            numUsedInputs = 0;
+            for (int i = inputs.size()-1; i >=0 && numUsedInputs!=9; i--) {
+                if (inputs[i] != last) {
+                    inputsList[8-numUsedInputs] = inputs[i];
+                    //std::cout << inputsList[8-numUsedInputs] << " ";
+                    numUsedInputs++;
+                }
+                last = inputs[i];
+            }
+            for (int i = 0; i < 8-numUsedInputs; i++) {
+                inputsList[i] = util::NEUTRAL;
+            }
+            //std::cout<<std::endl;
         }
 
+        //checks if the move moveID can be used in the current state
+        bool canBeUsed(int moveID, util::inputType startState) const {
+            std::cout<<"checking for usability "<< actionable<<" "<<currentID<<" "<<currentFrame<<std::endl;
+            bool cancel = false;
+            bool enoughMeter = true;
+            bool state = ((y<=0) == (startState == util::G));
+            //std::cout<<animations[moveID].getActive()<<" "<<state<<" "<<enoughMeter<<std::endl;
+            return moveID >=0 && animations[moveID].getActive() && state && enoughMeter && (actionable || cancel);
+        }
 
-        Fighter(std::vector<std::string> moveset) : Actor(moveset) {
-            hitStun = 0;
-            blockStun = 0;
-            knockedDown = 0;
-            knockBackTime = 0;
-            knockBackX = 0;
-            knockBackY = 0;
-            momentumX = 0;
-            momentumY = 0;
-            EXmeter = 0;
-            hp = 0;
-            for (int i = 0; i< moveset.size(); i++) {
-                animations.emplace_back(moveset[i]);
+        //begins the specified move if it can be used
+        void doAnimation(int moveID, util::inputType startState) {
+            if (canBeUsed(moveID,startState)) {
+                 currentAnimation = animations[moveID].getAnimType();
             }
         }
 
-        Fighter(data::FighterBuilder &fb) : Actor(fb.moveFiles){
+        //returns what the player could have "meant" with the given input
+        std::vector<int> checkIntent (int input) const{
+            switch (input) {
+                case util::FRONT:
+                    return {util::FRONT, util::NEUTRAL, (y <= 0) ? util::G : util::A};
+                case util::BACK:
+                    return {util::BACK, util::NEUTRAL, (y <= 0) ? util::G : util::A};
+                case util::DOWN:
+                    return {util::DOWN, util::NEUTRAL, (y <= 0) ? util::G : util::A};
+                case util::UP:
+                    return {util::UP, util::NEUTRAL, (y <= 0) ? util::G : util::A};
+                case util::DOWN_FRONT:
+                    return {util::DOWN_FRONT, util::DOWN, util::FRONT, util::NEUTRAL, (y <= 0) ? util::G : util::A};
+                case util::DOWN_BACK:
+                    return {util::DOWN_BACK, util::DOWN, util::BACK, util::NEUTRAL, (y <= 0) ? util::G : util::A};
+                case util::UP_FRONT:
+                    return {util::UP_FRONT, util::UP, util::FRONT, util::NEUTRAL, (y <= 0) ? util::G : util::A};
+                case util::UP_BACK:
+                    return {util::UP_BACK, util::UP, util::BACK, util::NEUTRAL, (y <= 0) ? util::G : util::A};
+                default:
+                    return {input, (y <= 0) ? util::G : util::A};
+            }
 
         }
 
+        //PRECONDITION: Moves list is sorted in order of priority (longest first)
+        void checkForAction(const sf::Clock &clock) {
+            int tolerance = 2;
+            std::vector<int> inputChecks(animations.size(), 0);//contains the check status of each input; -1 indicates it failed the check
+            std::vector<int> skippedIns(animations.size(), 0);
+
+            std::vector<int> currentIns(inputsList.begin(), inputsList.end());//simply casts everything to int
+            std::vector<int> possibleInputs;
+            //int state = (y <= 0) ? util::G : util::A;
+            /*for (int i = 0; i< animations.size(); i++) {
+                const std::vector<int> & moveData= data::inputRefs[animations[i].getAnimType()];
+                if (util::endsWithFromIndex(currentIns,moveData, 1)) {
+                    currentRequest = {i,clock.getElapsedTime(), static_cast<util::inputType>(moveData[0])};
+                    return;
+                }
+            }*/
+
+            for (int i = currentIns.size()-1; i>=0; i--) {
+                possibleInputs = checkIntent(currentIns[i]);
+                for (int j = 0; j<animations.size(); j++) {
+                    const std::vector<int> & moveData= data::inputRefs[animations[j].getAnimType()];
+                    if (inputChecks[j] < moveData.size() && inputChecks[j] != -1) {
+
+                        bool inputWorks = false;
+                        for (int input : possibleInputs) {
+                            if (moveData[moveData.size()-inputChecks[j] - 1] == input) {
+                                inputWorks = true;
+                                inputChecks[j] ++;
+                                skippedIns[j] = 0;
+                                break;
+                            }
+                        }
+
+                        if (!inputWorks) {
+                            if (moveData[moveData.size()-inputChecks[j] - 1] == util::G ||
+                                moveData[moveData.size()-inputChecks[j] - 1] == util::A) {
+                                inputChecks[j] = -1;
+
+                            }
+                            else {
+                                skippedIns[j] ++;
+                            }
+                        }
+                    }
+
+                    if (skippedIns[j] >= tolerance) {
+                        inputChecks[j] = -1;
+                    }
+                }
+            }
+
+            for (int i = 0; i< animations.size(); i++) {
+                if (inputChecks[i] == data::inputRefs[animations[i].getAnimType()].size() && animations[i].getActive()) {
+                    currentRequest = {i,clock.getElapsedTime(), (y <= 0) ? util::G : util::A};
+                    std::cout<<"action detected: "<<animations[i].getInputID()<<std::endl;
+                    return;
+                }
+            }
+        }
+
+        void executeAction(const sf::Clock &clock) {
+            callForQueueClear = false;
+            bool inCancelWindow = false;//not yet implemented
+            if (canBeUsed(currentRequest.moveID, currentRequest.state)) {
+                if (currentRequest.isValid() || (clock.getElapsedTime() - currentRequest.time)<=sf::seconds(0.05)) {
+                    std::cout << "action executed: "<<currentRequest.moveID << std::endl;
+                    activeAnimation = animations[currentRequest.moveID].getAnimType();
+                    activeID = currentRequest.moveID;
+                    activeFrame = 0;
+                    currentAnimation = animations[currentRequest.moveID].getAnimType();
+                    currentID = currentRequest.moveID;
+                    currentFrame = 0;
+                    actionable = false;
+                    currentRequest = {};
+                    callForQueueClear = true;
+                }
+            }
+        }
+
+    public:
+        Fighter() : Actor(), currentRequest(3) {
+            hitStun = 0;
+            blockStun = 0;
+            knockedDown = 0;
+            knockBackTime = 0;
+            knockBackX = 0;
+            knockBackY = 0;
+            momentumX = 0;
+            momentumY = 0;
+            EXmeter = 0;
+            hp = 0;
+        }
+
+
+        Fighter(std::vector<std::string> moveset) : Actor(moveset), currentRequest(3){
+            hitStun = 0;
+            blockStun = 0;
+            knockedDown = 0;
+            knockBackTime = 0;
+            knockBackX = 0;
+            knockBackY = 0;
+            momentumX = 0;
+            momentumY = 0;
+            EXmeter = 0;
+            hp = 0;
+            std::sort(animations.begin(), animations.end(),
+                [](const animation::Animation& a, const animation::Animation& b) {
+                    return static_cast<int>(a.getInputID()) > static_cast<int>(b.getInputID());
+                }
+            );
+
+        }
+
+        Fighter(data::FighterBuilder &fb) : Actor(fb.moveFiles), currentRequest(3){
+
+        }
+
+        void takeInput(std::vector<int> &inputs, const sf::Clock &clock) {
+            cullDupeInputs(inputs);
+            checkForAction(clock);
+            executeAction(clock);
+        }
 
         void update() override {
             if (hitStun<=0 && blockStun<=0) {
@@ -1303,12 +1752,17 @@ namespace actors {
                         if (walking == direction::NONE) {
                             passiveAnimation = animType::idle;
                         }
+                        else if (walking == facing) {
+                            passiveAnimation = animType::walk1;
+                        }
+                        else if (walking != facing) {
+                            passiveAnimation = animType::walk2;
+                        }
                         if (endPassive) {
                             endPassiveAnim();
                         }
                     }
                 }
-
             }
             else if (hitStun > 0) {
 
@@ -1316,16 +1770,33 @@ namespace actors {
             else{
 
             }
+
+            for (int i = 0; i< animations.size(); i++) {
+                if (animations[i].getAnimType()==passiveAnimation) {
+                    passiveID = i;
+
+                }
+            }
+
             passiveFrame++;
-            if ((int)activeAnimation >= 20 && false) {
+            if (activeID > -1) {
                 activeFrame++;
                 currentFrame = activeFrame;
+                currentID = activeID;
+                //std::cout <<"active current: "<<activeID<<" "<<animations.size()<<std::endl;
             }
             else {
                 currentFrame = passiveFrame;
+                currentID = passiveID;
+                //std::cout <<"passive current: "<<passiveID<<" "<<animations.size()<<std::endl;
             }
-            if (passiveFrame >= animations[0].length-1) {
+            if (passiveFrame >= animations[passiveID].length-1) {
                 endPassive = true;
+            }
+            if (activeID > -1 && currentFrame >= animations[activeID].length-1) {
+                endActive = true;
+                endActiveAnim();
+                currentID = passiveID;
             }
             x += dx;
             y += dy;
@@ -1425,9 +1896,18 @@ namespace actors {
 
 
         }
+
+        direction getFacing() {
+            return facing;
+        }
         const sf::Texture* getTexture(int anim) {
             return animations[anim].getTexture();
         }
+
+        const sf::Texture* getTexture() {
+            return animations[currentID].getTexture();
+        }
+
 
         sf::IntRect getTextureRect(int anim, int frame) {
             int fr = frame;
@@ -1447,10 +1927,14 @@ namespace actors {
                 Xd = x - camX + animations[currentID].getAnchor();
             }
             else {
-                Xd = x - camX +animations[currentID].getWidth()- animations[currentID].getAnchor();
+                Xd = x - camX + animations[currentID].getWidth()- animations[currentID].getAnchor();
             }
             float Yd = y-camY + 40;
             return {Xd, Yd};
+        }
+
+        bool checkForClearCall() {
+            return callForQueueClear;
         }
 
 
@@ -1510,7 +1994,7 @@ private:
     const std::array<std::array<std::vector<Input>, INPUT_TYPE_COUNT>, ACTION_COUNT> defaultActionMaps = {
         //SELECT
         std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
-            std::vector<Input>{{KEY,sf::Keyboard::J}},
+            std::vector<Input>{{KEY,sf::Keyboard::J}},//KEY
             std::vector<Input>{{MOUSE,-1}},
             std::vector<Input>{{JOYSTICK,-1}},
             std::vector<Input>{{BUTTON,0}},
@@ -1599,24 +2083,21 @@ public:
     const float maxInputTime = 0.5;
     std::array<bool, sf::Keyboard::KeyCount> keysDown;
     std::vector<Input> inputBuffer;
-    std::vector<sf::Time> inputTimes;
+    util::circularBuffer<sf::Time> inputTimes;
+    util::circularBuffer<sf::Time> inputDirTimes;
+    //NOTE: -1 means NO change in input direction; it is added to keep input directions in sync.
+    util::circularBuffer<int> inputDirections;
+
     sf::Vector2f cursorPos;
     sf::Vector2f selection;
-    //NOTE: -1 means NO change in input direction; it is added to keep input directions in sync.
-    std::vector<int> inputDirections;
 
-    Player() {
-        inputDirections.resize(0);
-        inputBuffer.resize(0);
-        inputTimes.resize(0);
-        inputDirections.reserve(20);
-        inputBuffer.reserve(20);
-        inputTimes.reserve(20);
+    Player() : inputTimes(20), inputDirTimes(20), inputDirections(20) {
         //initialize action maps to default values
-        for (int action = 0; action<ACTION_COUNT; action++) {
+        for (int action = 0; action < ACTION_COUNT; action++) {
             for (int inputList = 0; inputList < INPUT_TYPE_COUNT; inputList++) {
                 for (int i = 0; i < defaultActionMaps[action][inputList].size(); i++) {
                     actionMaps[action][inputList].push_back(defaultActionMaps[action][inputList][i]);
+                    //std::cout<<actionMaps[action][inputList][i].action<<std::endl;
                 }
             }
         }
@@ -1627,64 +2108,77 @@ public:
         }
 
         inputBuffer.emplace_back(INPUT_TYPE_COUNT);
-        inputTimes.emplace_back(sf::Time::Zero);
     }
 
-    void addInput(sf::Clock &clock, int id, inputType type, bool press) {
+    void addInput(sf::Clock &clock, int id, inputType type, bool press, util::direction facing) {
         int currDir = 5;
-        inputBuffer.emplace_back(type, id, press);
-        inputTimes.push_back(clock.getElapsedTime());
-        if (type == KEY) {
-            keysDown[id] = press;
-            if (keysDown[actionMaps[JUMP][KEY][0].action] ||
-                keysDown[actionMaps[JUMP][BUTTON][0].action] ||
-                keysDown[actionMaps[JUMP][JOYSTICK][0].action]) {
-                currDir += 3;
-                }
+        //inputBuffer.emplace_back(type, id, press);
+        inputTimes.writeWithOverWrite(clock.getElapsedTime());
+        //std::cout<< "added an imput methinks"<<std::endl;
+    }
 
-            if (keysDown[actionMaps[CROUCH][KEY][0].action] ||
-                keysDown[actionMaps[CROUCH][BUTTON][0].action] ||
-                keysDown[actionMaps[CROUCH][JOYSTICK][0].action]) {
-                currDir -= 3;
-                }
-
-            if (keysDown[actionMaps[WALK_LEFT][KEY][0].action] ||
-                keysDown[actionMaps[WALK_LEFT][BUTTON][0].action] ||
-                keysDown[actionMaps[WALK_LEFT][JOYSTICK][0].action]) {
-                currDir += 1;
-                }
-
-            if (keysDown[actionMaps[WALK_RIGHT][KEY][0].action] ||
-                keysDown[actionMaps[WALK_RIGHT][BUTTON][0].action] ||
-                keysDown[actionMaps[WALK_RIGHT][JOYSTICK][0].action]) {
-                currDir -= 1;
-                }
-
+    void addDirection(sf::Clock &clock, util::direction facing) {
+        int currDir = 5;
+        if (keysDown[actionMaps[NORMAL][KEY][0].action]) {
+            currDir = (int)util::inputType::NORMAL;
+            std::cout<<"normal pressed";
         }
-        std::cout<< "added an imput methinks"<<std::endl;
-
-
-        if (inputDirections.empty() || currDir != inputDirections.at(inputDirections.size()-1)) {
-            inputDirections.push_back(currDir);
+        else if (keysDown[actionMaps[SPECIAL][KEY][0].action]) {
+            currDir = (int)util::inputType::SPECIAL;
+        }
+        else if (keysDown[actionMaps[GRAB][KEY][0].action]) {
+            currDir = (int)util::inputType::GRAB;
         }
         else {
-            inputDirections.push_back(-1);
+            if (keysDown[actionMaps[WALK_LEFT][KEY][0].action]) {
+                currDir -= (int)facing;
+            }
+            if (keysDown[actionMaps[CROUCH][KEY][0].action]) {
+                currDir -= 3;
+            }
+            if (keysDown[actionMaps[WALK_RIGHT][KEY][0].action]) {
+                currDir += (int)facing;
+            }
+            if (keysDown[actionMaps[JUMP][KEY][0].action]) {
+                currDir += 3;
+            }
         }
 
+        inputDirections.writeWithOverWrite(currDir);
+        inputDirTimes.writeWithOverWrite(clock.getElapsedTime());
     }
+
+    void clearQueue() {
+        inputDirections.clear();
+    }
+
     void updateCombatInputs(const sf::Clock & clock) {
         int size = inputBuffer.size();
-        for (int i  =0; i< size; i++) {
+        /*for (int i  =0; i< size; i++) {
             //std::cout<<inputTimes.size()<<std::endl;
 
             if (clock.getElapsedTime() - inputTimes[i] > sf::seconds(maxInputTime)) {
-                inputDirections.erase(inputDirections.begin() + i);
                 inputTimes.erase(inputTimes.begin() + i);
                 inputBuffer.erase(inputBuffer.begin() + i);
+
                 size--;
                 i--;
             }
         }
+
+        size = inputDirections.size();
+        for (int i  =0; i< size; i++) {
+            //std::cout<<inputTimes.size()<<std::endl;
+
+            if (clock.getElapsedTime() - directionTimes[i] > sf::seconds(maxInputTime)) {
+                inputDirections.erase(inputDirections.begin() + i);
+                directionTimes.erase(directionTimes.begin() + i);
+
+                size--;
+                i--;
+            }
+        }*/
+
     }
 
     void printKeys() {
@@ -1696,9 +2190,9 @@ public:
     }
 
     void printDirections() {
-        int size = inputDirections.size();
-        for (int i = 0; i< size; i++) {
-            std::cout<<inputDirections.at(i)<<" ";
+        std::vector<int> in = inputDirections.peekFull();
+        for (int i = 0; i< in.size(); i++) {
+            std::cout<<in.at(i)<<" ";
         }
         std::cout<<std::endl;
     }
@@ -1877,7 +2371,7 @@ namespace game {
     protected:
     public:
         CombatState() : GameState() {
-            fighters[0] = actors::Fighter({"idle"});
+            fighters[0] = actors::Fighter({"5a1A","idle"});
             temp = sf::Texture();
             sprite = sf::Sprite();
 
@@ -1887,27 +2381,37 @@ namespace game {
 
         void handleEvents(const sf::Event &event, sf::Clock &clock) override {
             if (event.type == sf::Event::KeyPressed) {
-                player.addInput(clock, event.key.code, KEY, true);
-                //player.printKeys();
+                player.keysDown[event.key.code] = true;
+
+                player.addInput(clock, event.key.code, KEY, true, fighters[0].getFacing());
             }
             if (event.type == sf::Event::KeyReleased) {
-                player.addInput(clock, event.key.code, KEY, false);
-                //player.printKeys();
+                player.keysDown[event.key.code] = false;
+
+                player.addInput(clock, event.key.code, KEY, false, fighters[0].getFacing());
+                    //player.printKeys();
             }
         }
 
         void update(sf::Clock &clock) override {
             fighters[0].update();
             player.updateCombatInputs(clock);
-            player.printDirections();
+            if (fighters[0].checkForClearCall()) {
+                player.clearQueue();
+            }
+
+            //player.printDirections();
+            player.addDirection(clock, fighters[0].getFacing());
+            std::vector<int> inputs = player.inputDirections.peekFullBack();
+            fighters[0].takeInput(inputs,clock);
         }
 
         void draw(sf::RenderWindow& window) override {
             sf::Vector2f pos = fighters[0].getSpritePos(0,0);
             //std::cout << pos.x << ", " << pos.y << std::endl;
-            temp = *fighters[0].getTexture(0);
+            temp = *fighters[0].getTexture();
             sprite.setTexture(temp);
-            sprite.setScale(4.0f * fighters[0].outwardState[2], 4.0f);
+            sprite.setScale(4.0f * -1 * fighters[0].outwardState[2], 4.0f);
             sprite.setTextureRect(fighters[0].getTextureRect(-1,-1));
             sprite.setPosition(pos.x*4,graphics::windowSize.y-pos.y*4);
             window.draw(sprite);
@@ -1987,6 +2491,7 @@ int main() {
     //intialize necessary variables
     auto gameWindow = sf::RenderWindow(sf::VideoMode(1280,720),"fightingCoach");//the window that the game is drawn to
     graphics::rt.create(graphics::internalRes.x, graphics::internalRes.y);
+    data::initInputRefs();
 
     const sf::Time timePerFrame = sf::seconds(1.f/60.f);
     sf::Clock clock;
