@@ -1,0 +1,55 @@
+id:01400
+file:dash2.png
+
+//main-line animation
+framenum:5
+frameorder:2x0 6x1 10x2 4x3 4x4
+
+input:656
+
+//movement data
+startaltitude:0
+endaltitude:0
+movement:8x0.0,0.0 8x-12.0,0 2x-8.0,0.0 2x-6.0,0.0 2x-4.0,0.0 1x-3.0,0.0 1x-2.0,0.0 1x-1.0,0.0 1x0.0,0.0
+
+//other data
+iframes:-1x-1
+armorframes:-1x-1
+meterUsed:0
+active:1
+
+//ending animations
+endframeorder:0x-1
+endcondition:NULL
+
+//transition to other animations
+transanim:NULL
+transcondition:NULL
+
+//frame conditions
+framesize:75x64
+frameanchor:30x10
+offset:0x0
+
+//hitbox data
+HITBOX_START:
+HITBOX_END:
+
+hitboxorder:-1x-1
+
+//hurtbox data
+HURTBOX_START:
+pos:-13x45,26x45
+type:hurt
+SAVE:------
+HURTBOX_END:
+
+hurtboxorder:30x0
+
+//buffer data
+BUFFER_START:
+BUFFER_END:
+
+//projectile data
+PROJECTILE_START:
+PROJECTILE_END:
