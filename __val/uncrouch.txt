@@ -1,8 +1,11 @@
+id:00900
+file:uncrouch.png
+
 //main-line animation
 framenum:3
-frameorder:5x1 2x2
+frameorder:1x0 5x1 2x2
 
-input:5
+input:25
 
 //movement data
 startaltitude:0
@@ -13,6 +16,7 @@ movement:0x0,0
 iframes:-1x-1
 armorframes:-1x-1
 meterUsed:0
+active:0
 
 
 //ending animations
@@ -36,12 +40,12 @@ hitboxorder:-1x-1
 
 //hurtbox data
 HURTBOX_START:
+pos:-7x36,17x36
+type:hurt
+SAVE:------0
 pos:-10x39,20x36
 type:hurt
-SAVE:------
-pos:-13x45,26x45
-type:hurt
-SAVE:------
+SAVE:------1
 HURTBOX_END:
 
 hurtboxorder:5x0 2x1
@@ -53,6 +57,3 @@ BUFFER_END:
 //projectile data
 PROJECTILE_START:
 PROJECTILE_END:
-
-
-

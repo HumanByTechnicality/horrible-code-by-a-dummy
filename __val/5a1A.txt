@@ -1,9 +1,9 @@
-id:02000
+id:02500
 file:5a1A.png
 
 //main-line animation
 framenum:5
-frameorder:2x0 3x1 2x2 6x3 3x4
+frameorder:2x0 3x1 2x2 3x3 3x4
 
 input:5a
 

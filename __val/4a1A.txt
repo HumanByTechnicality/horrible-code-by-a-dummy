@@ -1,0 +1,55 @@
+id:02700
+file:4a1A.png
+
+//main-line animation
+framenum:9
+frameorder:2x0 4x1 4x2 3x3 2x4 2x5 5x6 5x7 1x8
+
+input:4a
+
+//movement data
+startaltitude:0
+endaltitude:0
+movement:0x0,0
+
+//other data
+iframes:-1x-1
+armorframes:-1x-1
+meterUsed:0
+active:1
+
+//ending animations
+endframeorder:0x-1
+endcondition:NULL
+
+//transition to other animations
+transanim:NULL
+transcondition:NULL
+
+//frame conditions
+framesize:74x64
+frameanchor:25x10
+offset:0x0
+
+//hitbox data
+HITBOX_START:
+HITBOX_END:
+
+hitboxorder:-1x-1
+
+//hurtbox data
+HURTBOX_START:
+pos:-13x45,26x45
+type:hurt
+SAVE:------
+HURTBOX_END:
+
+hurtboxorder:30x0
+
+//buffer data
+BUFFER_START:
+BUFFER_END:
+
+//projectile data
+PROJECTILE_START:
+PROJECTILE_END:

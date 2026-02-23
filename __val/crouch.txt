@@ -1,6 +1,9 @@
+id:00900
+file:crouch.png
+
 //main-line animation
 framenum:3
-frameorder:5x1 2x2
+frameorder:1x0 5x1 2x2
 
 input:2
 
@@ -13,6 +16,7 @@ movement:0x0,0
 iframes:-1x-1
 armorframes:-1x-1
 meterUsed:0
+active:0
 
 
 //ending animations
