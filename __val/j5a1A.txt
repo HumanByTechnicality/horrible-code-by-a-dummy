@@ -3,7 +3,7 @@ file:j5a1A.png
 
 //main-line animation
 framenum:4
-frameorder:5x0 2x1 4x2 8x3
+frameorder:5x0 2x1 4x2 6x3
 
 input:8
 
