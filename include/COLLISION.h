@@ -80,6 +80,32 @@ namespace collision {
             }
             return false;
         }
+
+        // --- Existence ---
+        [[nodiscard]] bool exists() const { return exist; }
+        void setExists(bool v) { exist = v; }
+
+        // --- Facing ---
+        [[nodiscard]] util::direction getFacing() const { return facing; }
+        void setFacing(util::direction d) { facing = d; }
+
+        // --- Bounds (local) ---
+        [[nodiscard]] const std::vector<sf::Rect<double>>& getLocalBounds() const { return localBounds; }
+        void setLocalBounds(const std::vector<sf::Rect<double>>& b) { localBounds = b; }
+
+        // --- Bounds (global) ---
+        [[nodiscard]] const std::vector<sf::Rect<double>>& getGlobalBounds() const { return globalBounds; }
+        void setGlobalBounds(const std::vector<sf::Rect<double>>& b) { globalBounds = b; }
+
+        // --- Single-rect access ---
+        [[nodiscard]] sf::Rect<double> getLocalRect(int i) const { return localBounds[i]; }
+        void setLocalRect(int i, const sf::Rect<double>& r) { localBounds[i] = r; }
+
+        [[nodiscard]] sf::Rect<double> getGlobalRect(int i) const { return globalBounds[i]; }
+        void setGlobalRect(int i, const sf::Rect<double>& r) { globalBounds[i] = r; }
+
+        // --- Count ---
+        [[nodiscard]] int getRectCount() const { return static_cast<int>(localBounds.size()); }
     };
 
     //TODO: plan HitBox class
@@ -130,6 +156,24 @@ namespace collision {
 
         }
 
+        HitBox(std::vector<std::array<int,4>> &bounds, std::array<int,14> dat) :  CollisionBox(bounds) {
+            id = dat[0];
+            damage = dat[1];
+            knockBackX = dat[2];
+            knockBackY = dat[3];
+            knockBackXA = dat[4];
+            knockBackYA = dat[5];
+            knockBackTime = dat[6];
+            hitStun = dat[7];
+            blockStun = dat[8];
+            bHeight = static_cast<height>(dat[9]);
+            dType = static_cast<damageType>(dat[10]);
+            bType = static_cast<hitboxType>(dat[11]);
+            knockDown = dat[12];
+            grab = dat[13];
+            exist = true;
+        }
+
         HitBox(): CollisionBox(nullBounds) {
             exist = false;
         }
@@ -142,6 +186,62 @@ namespace collision {
 
         //returns the damage of the hitbox
         double getDamage(actors::Fighter* own);
+
+        // --- ID ---
+        [[nodiscard]] int getID() const { return id; }
+        void setID(int v) { id = v; }
+
+        // --- Damage ---
+        [[nodiscard]] double getDamage() const { return damage; }
+        void setDamage(double v) { damage = v; }
+
+        // --- Grab ---
+        [[nodiscard]] bool isGrab() const { return grab; }
+        void setGrab(bool v) { grab = v; }
+
+        // --- Knockback ---
+        [[nodiscard]] int getKnockBackX() const { return knockBackX; }
+        void setKnockBackX(int v) { knockBackX = v; }
+
+        [[nodiscard]] int getKnockBackY() const { return knockBackY; }
+        void setKnockBackY(int v) { knockBackY = v; }
+
+        [[nodiscard]] int getKnockBackXA() const { return knockBackXA; }
+        void setKnockBackXA(int v) { knockBackXA = v; }
+
+        [[nodiscard]] int getKnockBackYA() const { return knockBackYA; }
+        void setKnockBackYA(int v) { knockBackYA = v; }
+
+        [[nodiscard]] int getKnockBackTime() const { return knockBackTime; }
+        void setKnockBackTime(int v) { knockBackTime = v; }
+
+        [[nodiscard]] bool getKnockDown() const { return knockDown; }
+        void setKnockDown(bool v) { knockDown = v; }
+
+        // --- Stun ---
+        [[nodiscard]] int getHitStun() const { return hitStun; }
+        void setHitStun(int v) { hitStun = v; }
+
+        [[nodiscard]] int getBlockStun() const { return blockStun; }
+        void setBlockStun(int v) { blockStun = v; }
+
+        // --- Types ---
+        [[nodiscard]] util::damageType getDamageType() const { return dType; }
+        void setDamageType(util::damageType t) { dType = t; }
+
+        [[nodiscard]] util::hitboxType getHitboxType() const { return bType; }
+        void setHitboxType(util::hitboxType t) { bType = t; }
+
+        [[nodiscard]] util::height getHeight() const { return bHeight; }
+        void setHeight(util::height h) { bHeight = h; }
+
+        // --- Trigger animation ---
+        [[nodiscard]] animation::animType getTriggerType() const { return trigger; }
+        void setTriggerType(animation::animType t) { trigger = t; }
+
+        int getTriggerID() const { return triggerID; }
+        void setTriggerID(int v) { triggerID = v; }
+
     };
 
     //TODO: plan HurtBox class
@@ -160,6 +260,10 @@ namespace collision {
         CollisionBox(bounds), bType(Type) {
             exist = true;
         }
+
+        [[nodiscard]] hurtboxType getType() const { return bType; }
+        void setType(hurtboxType t) { bType = t; }
+
     };
 
     //TODO: plan StageBox class
