@@ -28,6 +28,7 @@ add_executable(EditorF fighterEditor.cpp
         include/UI.h
         include/COLLISION.h
         include/ANIMATION.h
+        include/DATA2.h
 )
 
 set(SFML_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SFML/lib/cmake/SFML")

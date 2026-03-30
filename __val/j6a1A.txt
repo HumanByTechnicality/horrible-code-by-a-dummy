@@ -3,7 +3,7 @@ file:j6a1A.png
 
 //main-line animation
 framenum:9
-frameorder:5x0 4x1 4x2 2x3 2x4 2x5 6x6 3x7 3x8
+frameorder:4x0 4x1 3x2 2x3 2x4 2x5 5x6 3x7 3x8
 
 input:8
 
@@ -36,9 +36,23 @@ offset:0x0
 
 //hitbox data
 HITBOX_START:
+boxid:0
+pos:31x41,23x14,-7x47,43x8
+damage:20
+type:0,0,0,0,-1
+stun:14,8
+knockback:4x0,4x2,5
+SAVE:------
+boxid:1
+pos:28x33,22x15,4x24,31x11
+damage:20
+type:2,1,0,0,-1
+stun:14,8
+knockback:4x0,4x2,5
+SAVE:------
 HITBOX_END:
 
-hitboxorder:-1x-1
+hitboxorder:11x-1 2x0 2x1 13x-1
 
 //hurtbox data
 HURTBOX_START:

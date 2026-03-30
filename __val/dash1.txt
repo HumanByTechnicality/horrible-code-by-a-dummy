@@ -3,14 +3,14 @@ file:dash1.png
 
 //main-line animation
 framenum:5
-frameorder:2x0 6x1 10x2 4x3 4x4
+frameorder:2x0 6x1 6x2 4x3 4x4
 
 input:656
 
 //movement data
 startaltitude:0
 endaltitude:0
-movement:8x0.0,0.0 8x12.0,0 2x8.0,0.0 2x6.0,0.0 2x4.0,0.0 1x3.0,0.0 1x2.0,0.0 1x1.0,0.0 1x0.0,0.0
+movement:8x0.0,0.0 4x20.0,0 2x15.0,0.0 2x12.0,0.0 2x9.0,0.0 1x6.0,0.0 1x3.0,0.0 1x1.0,0.0 1x0.0,0.0
 
 //other data
 iframes:-1x-1
@@ -39,12 +39,25 @@ hitboxorder:-1x-1
 
 //hurtbox data
 HURTBOX_START:
-pos:-13x45,26x45
+boxid:0
+pos:-12x18,25x19,-10x31,28x14,5x43,13x14
+type:hurt
+SAVE:------
+boxid:1
+pos:-10x19,22x18,-8x32,26x13,-1x43,14x14
+type:hurt
+SAVE:------
+boxid:2
+pos:-23x13,37x10,-12x27,41x14,16x30,13x12
+type:hurt
+SAVE:------
+boxid:3
+pos:-14x14,27x13,-5x28,32x14,13x35,13x12
 type:hurt
 SAVE:------
 HURTBOX_END:
 
-hurtboxorder:30x0
+hurtboxorder:2x0 6x1 10x2 5x3
 
 //buffer data
 BUFFER_START:

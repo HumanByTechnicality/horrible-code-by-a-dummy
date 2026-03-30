@@ -275,6 +275,13 @@ namespace util {
         HIGH = 2,//must be blocked standing
     };
 
+    enum class weight {
+        LIGHT = 0,
+        MEDIUM = 1,
+        HEAVY = 2,
+    };
+
+
     enum class gameState {
         TITLE = 0,
         TITLE_LOAD = 1,

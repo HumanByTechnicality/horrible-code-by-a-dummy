@@ -33,14 +33,39 @@ namespace collision {
         REFLECT = 3
     };
 
+    inline std::vector<std::array<int,4>> nullBounds = {};
+
+    struct BoolAndRect {
+        bool value;
+        sf::Rect<double> rect;
+    };
+
+    enum hitType {
+        H_none = 0,
+        H_clean,
+        H_clean_air,
+        H_clash,
+        H_blocked
+    };
+
+    enum hitCon {
+        CON_none = 0,
+        CON_any,
+        CON_hit,
+        CON_grab,
+        CON_hitgrab,
+        CON_whiff,
+    };
+
+
     //a set of rectangles which defines a collider TODO: write CollisionBox class
     class CollisionBox{
     private:
     protected:
-        std::vector<std::array<int,4>> nullBounds = {{0,0,0,0}};
-        std::vector<sf::Rect<double>> localBounds;//the bounds of the collision box with respect to some origin
-        std::vector<sf::Rect<double>> globalBounds;//the bounds of the collision box with respect to the stage
+
         bool exist = false;
+        std::vector<sf::Rect<double>> localBounds = {};//the bounds of the collision box with respect to some origin
+        std::vector<sf::Rect<double>> globalBounds = {};//the bounds of the collision box with respect to the stage
 
         //initializes local variables TODO: write create method for IntRect overload
         void create(std::vector<sf::IntRect> &bounds) {}
@@ -58,9 +83,11 @@ namespace collision {
         }
         //creates a new collision box TODO: write CollisionBox method for IntRect overload
         explicit CollisionBox(std::vector<sf::Rect<double>> &bounds) {
+            localBounds.clear();
+            globalBounds.clear();
             for (int i = 0; i<bounds.size(); i++) {
                 localBounds.push_back(bounds[i]);
-                globalBounds.push_back(localBounds.back());
+                globalBounds.push_back(bounds[i]);
             }
         }
 
@@ -68,17 +95,44 @@ namespace collision {
         void move(int x, int y, bool direction){}
 
         //returns whether this collision box intersects with another collision box TODO: write intersects method
-        bool intersects(CollisionBox &other) {
+        bool intersects(CollisionBox &other) const{
             if (this->exist && other.exist) {
-                for (int i = 0; i<this->globalBounds.size(); i++) {
-                    for (int j = 0; j<other.globalBounds.size(); j++) {
-                        if (this->globalBounds[i].intersects(other.globalBounds[j])) {
+                for (const auto & globalBound : this->globalBounds) {
+                    for (const auto & j : other.globalBounds) {
+                        if (globalBound.intersects(j)) {
                             return true;
                         }
                     }
                 }
             }
             return false;
+        }
+
+
+        bool intersects(CollisionBox *other) const {
+            if (this->exist && other->exist) {
+                for (const auto & globalBound : this->globalBounds) {
+                    for (const auto & j : other->globalBounds) {
+                        if (globalBound.intersects(j)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        BoolAndRect intersects(CollisionBox *other, sf::Rect<double>& collisionRegion) {
+            if (this->exist && other->exist) {
+                for (const auto & globalBound : this->globalBounds) {
+                    for (const auto & j : other->globalBounds) {
+                        if (globalBound.intersects(j,collisionRegion)) {
+                            return {true,collisionRegion};
+                        }
+                    }
+                }
+            }
+            return{ false,sf::Rect<double>(0,0,0,0)};
         }
 
         // --- Existence ---
@@ -91,7 +145,12 @@ namespace collision {
 
         // --- Bounds (local) ---
         [[nodiscard]] const std::vector<sf::Rect<double>>& getLocalBounds() const { return localBounds; }
-        void setLocalBounds(const std::vector<sf::Rect<double>>& b) { localBounds = b; }
+        void setLocalBounds(const std::vector<sf::Rect<double>>& b) {
+            localBounds.clear();
+            for (sf::Rect<double> a : b) {
+                localBounds.push_back(a);
+            }
+        }
 
         // --- Bounds (global) ---
         [[nodiscard]] const std::vector<sf::Rect<double>>& getGlobalBounds() const { return globalBounds; }
@@ -104,8 +163,35 @@ namespace collision {
         [[nodiscard]] sf::Rect<double> getGlobalRect(int i) const { return globalBounds[i]; }
         void setGlobalRect(int i, const sf::Rect<double>& r) { globalBounds[i] = r; }
 
+        // --- Single-rect add or remove ---
+        void addLocalRect(const sf::Rect<double>& r) { localBounds.push_back(r); }
+        void removeLocalRect(int i) { localBounds.erase(localBounds.begin()+i); }
+
         // --- Count ---
         [[nodiscard]] int getRectCount() const { return static_cast<int>(localBounds.size()); }
+
+        void placeGlobalBounds(double x, double y, util::direction face) {
+            if (exist == 1) {
+                globalBounds = localBounds;
+                facing = face;
+                if ((int) face == -1) {
+                    for (int i = 0; i< localBounds.size(); i++) {
+                        globalBounds[i].left = x - localBounds[i].left - localBounds[i].width;
+                        globalBounds[i].top = y + localBounds[i].top - localBounds[i].height + 1;
+                    }
+                } else {
+                    for (int i = 0; i< localBounds.size(); i++) {
+                        globalBounds[i].left = x + localBounds[i].left;
+                        globalBounds[i].top = y + localBounds[i].top - localBounds[i].height + 1;
+                    }
+                }
+                for (int i = 0; i< localBounds.size(); i++) {
+                    globalBounds[i].width = std::abs(localBounds[i].width);
+                    globalBounds[i].height = std::abs(localBounds[i].height);
+                    //std::cout<<globalBounds[i].getPosition().x<<","<<globalBounds[i].getPosition().y<<" "<<globalBounds[i].getSize().x<<","<<globalBounds[i].getSize().y<<std::endl;
+                }
+            }
+        }
     };
 
     //TODO: plan HitBox class
@@ -120,6 +206,7 @@ namespace collision {
         int knockBackYA;//the amount of knockback applied to an aerial target in the Y direction
         int knockBackTime;//the amount of time that knockback on a grounded opponent is applied over
         bool knockDown;//whether this hitbox applies knockdown on hit
+        bool isActive = true;
 
         int id;//the id of this hitbox
 
@@ -129,9 +216,11 @@ namespace collision {
         damageType dType;//the type of damage this hitbox deals
         hitboxType bType;//the type of attack associated with this hitbox
         height bHeight;//the height of this hitbox
+        util::weight bWeight;//the weight of the hitbox
 
-        animation::animType trigger;//type of the animation triggered on hit
-        int triggerID;//ID of the animation triggered
+        hitCon triggerCon;
+
+        int trigger;//ID of the animation triggered on hit
     protected:
     public:
         HitBox(std::vector<std::array<int,4>> &bounds, std::vector<std::string> datLines) :  CollisionBox(bounds) {
@@ -156,7 +245,7 @@ namespace collision {
 
         }
 
-        HitBox(std::vector<std::array<int,4>> &bounds, std::array<int,14> dat) :  CollisionBox(bounds) {
+        HitBox(std::vector<std::array<int,4>> &bounds, std::array<int,17> dat) :  CollisionBox(bounds) {
             id = dat[0];
             damage = dat[1];
             knockBackX = dat[2];
@@ -171,11 +260,20 @@ namespace collision {
             bType = static_cast<hitboxType>(dat[11]);
             knockDown = dat[12];
             grab = dat[13];
+            bWeight = static_cast<util::weight>(dat[14]);
+            triggerCon = static_cast<hitCon>(dat[15]);
+            trigger = dat[16];
             exist = true;
+
         }
 
         HitBox(): CollisionBox(nullBounds) {
             exist = false;
+        }
+
+        HitBox(int id): CollisionBox(nullBounds) {
+            this->id = id;
+            exist = true;
         }
 
 
@@ -235,18 +333,23 @@ namespace collision {
         [[nodiscard]] util::height getHeight() const { return bHeight; }
         void setHeight(util::height h) { bHeight = h; }
 
+        [[nodiscard]] util::weight getWeight() const { return bWeight; }
+        void setWeight(util::weight h) { bWeight = h; }
+
         // --- Trigger animation ---
-        [[nodiscard]] animation::animType getTriggerType() const { return trigger; }
-        void setTriggerType(animation::animType t) { trigger = t; }
+        [[nodiscard]] int getTriggerType() const { return trigger; }
+        void setTrigger(int t) { trigger = t; }
 
-        int getTriggerID() const { return triggerID; }
-        void setTriggerID(int v) { triggerID = v; }
+        void setDirection(util::direction newFace){ facing = newFace;}
 
+        void setActive(bool state) {isActive = state;}
+        [[nodiscard]] bool getActive() const {return isActive;}
     };
 
     //TODO: plan HurtBox class
     class HurtBox: public CollisionBox {
     private:
+        int id;
     protected:
     public:
         hurtboxType bType;
@@ -254,6 +357,11 @@ namespace collision {
         HurtBox():
         CollisionBox(nullBounds), bType(hurtboxType::NONE) {
             exist = false;
+        }
+
+        HurtBox(int id):CollisionBox(nullBounds), bType(hurtboxType::NONE) {
+            exist = false;
+            this->id = id;
         }
 
         explicit HurtBox(std::vector<std::array<int,4>> bounds, hurtboxType Type) :
@@ -281,15 +389,15 @@ namespace collision {
     };
 
     //checks if two CollisionBoxes intersect each other TODO: write intersects method
-    bool intersects(CollisionBox &c1, CollisionBox &c2) {
+    inline bool intersects(CollisionBox &c1, CollisionBox &c2) {
         return c1.intersects(c2);
     }
 
-    std::vector<HitBox> NULLHITBOXES = {HitBox()};
-    std::vector<HurtBox> NULLHURTBOXES = {HurtBox()};
+    inline std::vector<HitBox> NULLHITBOXES = {};
+    inline std::vector<HurtBox> NULLHURTBOXES = {};
 
     //TODO: ensure hitboxes are sorted in order of decreasing priority before calling this function
-    HitBox* hitCheck(std::vector<HitBox> &HiB, std::vector<HurtBox> &HuB) {
+    /*inline HitBox* hitCheck(std::vector<HitBox> &HiB, std::vector<HurtBox> &HuB) {
         for (int i = 0; i<HiB.size(); i++) {
             for (int j = 0; j<HuB.size(); j++) {
                 if (HiB[i].intersects(HuB[j])) {
@@ -298,7 +406,7 @@ namespace collision {
             }
         }
         return &NULLHITBOXES[0];
-    }
+    }*/
 
 }
 #endif

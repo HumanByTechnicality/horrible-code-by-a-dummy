@@ -44,7 +44,7 @@ type:hurt
 SAVE:------
 HURTBOX_END:
 
-hurtboxorder:30x0
+hurtboxorder:-1x-1
 
 //buffer data
 BUFFER_START:

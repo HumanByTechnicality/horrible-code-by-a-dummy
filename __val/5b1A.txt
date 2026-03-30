@@ -3,7 +3,7 @@ file:5b1A.png
 
 //main-line animation
 framenum:8
-frameorder:2x0 5x1 4x2 2x3 2x4 3x5 12x6 6x7
+frameorder:2x0 4x1 3x2 2x3 2x4 3x5 6x6 6x7
 
 input:5b
 
@@ -39,12 +39,13 @@ hitboxorder:-1x-1
 
 //hurtbox data
 HURTBOX_START:
-pos:-13x45,26x45
+boxid:0
+pos:-13x18,25x19,-11x31,28x14,5x43,13x14
 type:hurt
 SAVE:------
 HURTBOX_END:
 
-hurtboxorder:30x0
+hurtboxorder:-1x-1
 
 //buffer data
 BUFFER_START:

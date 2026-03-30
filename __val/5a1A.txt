@@ -3,7 +3,7 @@ file:5a1A.png
 
 //main-line animation
 framenum:5
-frameorder:2x0 3x1 2x2 3x3 3x4
+frameorder:2x0 3x1 2x2 5x3 3x4
 
 input:5a
 
@@ -33,18 +33,30 @@ offset:0x0
 
 //hitbox data
 HITBOX_START:
+boxid:0
+pos:22x30,19x14
+damage:20
+type:1,0,0,0,0,-1
+stun:14,8
+knockback:1x0,4x2,5
+SAVE:------
 HITBOX_END:
 
-hitboxorder:-1x-1
+hitboxorder:5x-1 2x0 8x-1
 
 //hurtbox data
 HURTBOX_START:
-pos:-13x45,26x45
+boxid:0
+pos:-13x18,25x19,-11x31,28x14,5x43,13x14
+type:hurt
+SAVE:------
+boxid:1
+pos:-13x18,27x19,-8x29,47x11,10x40,13x14
 type:hurt
 SAVE:------
 HURTBOX_END:
 
-hurtboxorder:30x0
+hurtboxorder:5x0 7x1 3x0
 
 //buffer data
 BUFFER_START:

@@ -4,7 +4,6 @@
 
 #ifndef INCLUDE_DATA_H
 #define INCLUDE_DATA_H
-#pragma once
 #include "array"
 #include "UTIL.h"
 #include "vector"
@@ -78,17 +77,17 @@ namespace animation {
         j41236b, j63214b,
 
         // --- Grabs (auto: 89-91) ---
-        g4c = 95, g5c, g6c,
+        g4c = 89, g5c, g6c,
 
-        grabthrow = 100,
+        grabthrow = 92,
 
         //grab reactions
-        grabreaction = 101,
-        throwreaction = 102,
+        grabreaction = 93,
+        throwreaction = 94,
 
-        justblock = 103,
-        blockpoise = 104,
-        block = 105,
+        justblock = 95,
+        blockpoise = 96,
+        block = 97,
 
 
         //hit reactions
@@ -109,8 +108,29 @@ namespace animation {
         parry = 124,
         burst = 125,
 
-        ANIM_TYPE_COUNT
+        ANIM_TYPE_COUNT,
 
+        //projectile animations
+        PROJECTILE_ANIM_START = 180,
+        PROJECTILE_NONE,
+        PROJECTILE_active_start,
+        PROJECTILE_active_loop,
+        PROJECTILE_explode,
+        PROJECTILE_floor_bounce,
+        PROJECTILE_wall_bounce,
+        PROJECTILE_end,
+        PROJECTILE_ANIM_END,
+
+        PLACEABLE_ANIM_START = 190,
+        PLACEABLE_NONE,
+        PLACEABLE_active_start,
+        PLACEABLE_active_loop,
+        PLACEABLE_trigger,
+        PLACEABLE_ANIM_END,
+
+
+
+        ANIM_TYPE_END,
     };
 
     std::string getAnimName(animType anim) {
@@ -161,6 +181,18 @@ namespace animation {
                 return "not handled yet";
         }
     }
+
+    /*the condition that must be met in an instructions list for it to progress to its next stage.
+    a transition condition, if you will.*/
+    enum transCon {
+        NO_CONDITION = -1,
+        on_end,
+        on_cancel,
+        on_hit,
+        on_land,
+        on_wall,
+        CONDITION_COUNT
+    };
 
 }
 
@@ -306,7 +338,9 @@ namespace data {
         weaponRes, grabRes, projectileSpeed, lifeSteal, ultBoost, stanceChange,
         upThrow, rageBoost, grabArmor, impactSprint, controlProjectiles, longParry,
         downDash, burst, launcher, poisonGrab, icyWeapons, fieryMelee, stunProjectiles,
-        cCanceling, doubleDash, dashAttack, groundedHitbox, invincibleDash, blockBreaker};
+        cCanceling, doubleDash, dashAttack, groundedHitbox, invincibleDash, blockBreaker,
+        STAT_COUNT
+    };
 
     //the types of modification that an upgrade can perform on a stat
     enum modifyType{ADD, SUBTRACT, MULTIPLY, DIVIDE, SET};
@@ -318,6 +352,7 @@ namespace data {
         data::statID stat;
         modifyType type;
         double amount;
+        int pointsUsed;
         double applyTo(double statToApply) {
             switch (type) {
                 case ADD:
@@ -333,7 +368,107 @@ namespace data {
             }
             return -1;
         }
+        Upgrade(std::string name, data::statID stat, modifyType modify, double amount, int points) {
+            this->name = std::move(name);
+            this->stat = stat;
+            this->amount = amount;
+            this->type = modify;
+            this->pointsUsed = points;
+        }
 
+
+    };
+
+    struct UpgradeSet {
+        std::vector<Upgrade> upgrades;
+        std::vector<int> applyNum;
+        int pointsUsed;
+        std::array<int,4> archetypePoints;
+    };
+    struct Upgrades {
+        //Basic upgrade modifiers
+        Upgrade statsHP{"HP",maxHP,ADD,50,3};
+        Upgrade statsHPNt{"HPn't",maxHP,ADD,50,3};
+
+        Upgrade statsSpeed{"Speed",speed,ADD,0.5,3};
+        Upgrade statsAirSpeed{"AirSpeed",airSpeed,ADD,0.5,3};
+        Upgrade statsSpeedNt{"Speedn't",speed,SUBTRACT,0.5,-3};
+        Upgrade statsAirSpeedNt{"AirSpeedn't",airSpeed,SUBTRACT,0.5,-3};
+
+        Upgrade statsGrabMult{"Grab Pow",grabMult,ADD,0.01,3};
+        Upgrade statsGrabRes{"Grab Res",grabRes,ADD,0.01,3};
+        Upgrade statsGrabMultNt{"Grab Pown't",grabMult,SUBTRACT,0.01,-3};
+        Upgrade statsGrabResNt{"Grab Resn't",grabRes,SUBTRACT,0.01,-3};
+
+        Upgrade statsProjectileMult{"Projectile Pow",projectileMult,ADD,0.01,3};
+        Upgrade statsProjectileRes{"Projectile Res",projectileRes,ADD,0.01,3};
+        Upgrade statsProjectileMultNt{"Projectile Pown't",projectileMult,SUBTRACT,0.01,-3};
+        Upgrade statsProjectileResNt{"Projectile Resn't",projectileRes,SUBTRACT,0.01,-3};
+
+        Upgrade statsMeleeMult{"Melee Pow",meleeMult,ADD,0.01,3};
+        Upgrade statsMeleeRes{"Melee Res",meleeRes,ADD,0.01,3};
+        Upgrade statsMeleeMultNt{"Melee Pown't",meleeMult,SUBTRACT,0.01,3};
+        Upgrade statsMeleeResNt{"Melee Resn't",meleeRes,SUBTRACT,0.01,3};
+
+        Upgrade statsWeaponMult{"Weapon Pow", weaponMult, ADD, 0.01, 3};
+        Upgrade statsWeaponRes{"Weapon Res", weaponRes, ADD, 0.01, 3};
+        Upgrade statsWeaponMultNt{"Weapon Pow", weaponMult, SUBTRACT, 0.01, 3};
+        Upgrade statsWeaponResNt{"Weapon Res", weaponRes, SUBTRACT, 0.01, 3};
+
+        //Upgrade sets
+        UpgradeSet rushDown{{//fast, light, and close-range
+            statsSpeed, statsAirSpeed,
+            statsMeleeMult,
+            statsHPNt,
+            },{
+                1,1,
+                10,
+                1
+            },0, {20,0,0,0}};
+
+        UpgradeSet zoner{{//slow, defensive, and long-range
+            statsSpeedNt, statsAirSpeedNt,
+            statsProjectileMult,
+            statsHPNt
+            },{
+                1,1,
+                10,
+                2
+            },0,{0,20,0,0}};
+
+        UpgradeSet grappler{{//slow, meaty, and close-range
+            statsSpeedNt,statsAirSpeedNt,
+            statsGrabMult,
+            statsHP
+            },{
+                2,2,
+                10,
+                4
+            },0,{0,0,20,0}};
+
+        UpgradeSet shoto{//normal speed, frail, and mid-range
+            {
+                statsMeleeMult,statsProjectileMult,
+                statsGrabMult, statsWeaponMult,
+                statsHPNt
+            },{
+                2,2,
+                2,2,
+                1,
+
+            }, 0, {0,0,0,0}};
+
+        UpgradeSet hpSpec{{statsHP},{1}, 3};
+
+        UpgradeSet speedSpec{{statsSpeed, statsAirSpeed},{3,1},3};
+
+        UpgradeSet GrabSpec{{statsGrabMult},{5},3};
+
+        UpgradeSet MeleeSpec{{statsGrabMult},{5},3};
+
+        UpgradeSet ProjectileSpec{{statsGrabMult},{5},3};
+
+        UpgradeSet WeaponSpec{{statsGrabMult},{5},3};
 
     };
 
@@ -350,7 +485,8 @@ namespace data {
         };
         std::array<double, 36> baseStats;
         std::array<double, 36> buildStats;
-        //std::vector<Upgrade> upgrades;
+        std::vector<UpgradeSet> upgrades;
+        std::vector<std::string> baseMoves;
         std::vector<std::string> moveFiles;
 
         FighterBuilder(std::array<double, 36> bsts, std::vector<std::string> moves) {
@@ -369,7 +505,44 @@ namespace data {
                 buildStats[i] = defaultStats[i];
             }
         }
+
+    private:
+
+        void setBaseMoves() {
+            baseMoves = {
+                "idle","walk1","walk2","crouch","uncrouch","crouched",
+                "jump0","jump1","jump2","land",
+                "dash1","dash2","dash3","dash4",
+                "air0","air1","air2",
+                "hit00","hit01","hit02",
+                "hit10","hit11","hit12",
+                "hit20","hit21","hit22",
+                "jhit0","jhit1","jhit2",
+
+            };
+        }
+        void setBuildStats() {
+            buildStats[maxHP] = 1000;
+            buildStats[speed] = 3;
+            buildStats[airSpeed] = 4;
+            buildStats[grabMult] = 1;
+            buildStats[weaponMult] = 1;
+            buildStats[meleeMult] = 1;
+            buildStats[projectileMult] = 1;
+            buildStats[meterMult] = 1;
+            buildStats[maxStamina] = 200;
+            buildStats[meleeRes] = 0;
+            buildStats[projectileRes] = 0;
+            buildStats[grabRes] = 0;
+            buildStats[weaponRes] = 0;
+            buildStats[projectileSpeed] = 1;
+            for (int i = lifeSteal; i < STAT_COUNT; i++) {
+                buildStats[i] = 0;
+            }
+        }
     };
+
+
 
     //DTO for Stages
     class StageBuilder {

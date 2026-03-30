@@ -1,4 +1,4 @@
-id:00900
+id:00800
 file:crouch.png
 
 //main-line animation
@@ -40,15 +40,21 @@ hitboxorder:-1x-1
 
 //hurtbox data
 HURTBOX_START:
-pos:-7x36,17x36
+boxid:0
+pos:-13x18,25x19,-11x31,28x14,5x43,13x14
 type:hurt
-SAVE:------0
-pos:-10x39,20x36
+SAVE:------
+boxid:1
+pos:-10x15,22x16,-8x29,24x14,5x38,14x14
 type:hurt
-SAVE:------1
+SAVE:------
+boxid:2
+pos:-11x14,25x15,-7x24,23x12,5x35,14x14
+type:hurt
+SAVE:------
 HURTBOX_END:
 
-hurtboxorder:5x0 2x1
+hurtboxorder:1x0 5x1 2x2
 
 //buffer data
 BUFFER_START:

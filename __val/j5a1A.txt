@@ -36,9 +36,16 @@ offset:0x0
 
 //hitbox data
 HITBOX_START:
+boxid:0
+pos:10x37,19x17
+damage:20
+type:0,0,0,0,-1
+stun:14,8
+knockback:4x0,4x2,5
+SAVE:------
 HITBOX_END:
 
-hitboxorder:-1x-1
+hitboxorder:5x-1 2x0 10x-1
 
 //hurtbox data
 HURTBOX_START:

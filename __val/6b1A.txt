@@ -34,18 +34,51 @@ offset:0x0
 
 //hitbox data
 HITBOX_START:
+boxid:0
+pos:-12x31,55x11,33x37,8x23
+damage:20
+type:1,1,0,0,0,-1
+stun:14,8
+knockback:4x0,4x2,7
+trigger:3,04610
+SAVE:------
+boxid:0
+pos:22x31,21x11,33x37,8x23
+damage:20
+type:1,1,0,0,0,-1
+stun:14,8
+knockback:4x0,4x2,7
+trigger:3,04610
+SAVE:------
 HITBOX_END:
 
-hitboxorder:-1x-1
+hitboxorder:15x-1 2x0 14x1 8x-1
 
 //hurtbox data
 HURTBOX_START:
-pos:-13x45,26x45
+boxid:0
+pos:-13x18,25x19,-11x31,28x14,5x43,13x14
+type:hurt
+SAVE:------
+boxid:1
+pos:-13x16,24x17,-9x30,16x14,-7x43,14x14
+type:hurt
+SAVE:------
+boxid:2
+pos:-16x14,26x15,-22x27,29x13,-13x36,14x14
+type:hurt
+SAVE:------
+boxid:3
+pos:-29x12,23x11,-15x21,28x12,-11x30,50x9,10x37,14x14
+type:hurt
+SAVE:------
+boxid:4
+pos:-15x18,29x18,-8x30,33x12,8x42,14x14
 type:hurt
 SAVE:------
 HURTBOX_END:
 
-hurtboxorder:30x0
+hurtboxorder:2x0 5x1 8x2 16x3 8x4
 
 //buffer data
 BUFFER_START:
