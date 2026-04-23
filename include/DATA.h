@@ -99,14 +99,21 @@ namespace animation {
 
         hitSpec1 = 113, hitSpec2 = 114, hitSpec3 = 115,
 
-        knockDown1 = 116, knockDown2 = 117,
-        downLand = 118,
+        knockDown = 116, knocked = 117,
+        lightLand = 118, heavyLand = 119,
 
-        getupG1 = 119, getupG2 = 120, getupG3 = 121, getupG4 = 122,
-        getupA1 = 123,
+        //getups from knockdown:
+        getupG1 = 120,//standard (timed)
+        getupG2 = 121,//roll back
+        getupG3 = 122,//neutral
+        getupG4 = 123,//roll forward
+        getupG5 = 124,//attack (upgrade locked)
 
-        parry = 124,
-        burst = 125,
+        //anims for flip-out
+
+
+        parry = 130,
+        burst = 140,
 
         ANIM_TYPE_COUNT,
 
@@ -280,7 +287,7 @@ namespace data {
         inputRefs[animation::g63214a] = {G, FRONT, DOWN_FRONT, DOWN, DOWN_BACK, BACK ,NORMAL};
 
         inputRefs[animation::g236b] = {G, DOWN, DOWN_FRONT, FRONT ,SPECIAL}; inputRefs[animation::g214b] = {G, DOWN, DOWN_BACK, BACK ,SPECIAL};
-        inputRefs[animation::g623b] = {G, FRONT, DOWN, DOWN_FRONT ,SPECIAL}; inputRefs[animation::g412b] = {G, BACK, DOWN_BACK, DOWN ,SPECIAL};
+        inputRefs[animation::g623b] = {G, FRONT, NEUTRAL, DOWN, DOWN_FRONT ,SPECIAL}; inputRefs[animation::g412b] = {G, BACK, DOWN_BACK, DOWN ,SPECIAL};
         inputRefs[animation::g632b] = {G, FRONT, DOWN_FRONT, DOWN ,SPECIAL}; inputRefs[animation::g421b] = {G, BACK, DOWN, DOWN_BACK ,SPECIAL};
         inputRefs[animation::g41236b] = {G, BACK, DOWN_BACK, DOWN, DOWN_FRONT, FRONT ,SPECIAL};
         inputRefs[animation::g63214b] = {G, FRONT, DOWN_FRONT, DOWN, DOWN_BACK, BACK ,SPECIAL};
@@ -311,6 +318,11 @@ namespace data {
         inputRefs[animation::hit00] = {G, NO_INPUT}; inputRefs[animation::hit01] = {G, NO_INPUT}; inputRefs[animation::hit02] = {G, NO_INPUT};
 
         inputRefs[animation::jhit0] = {A, NO_INPUT}; inputRefs[animation::jhit1] = {A, NO_INPUT}; inputRefs[animation::jhit2] = {A, NO_INPUT};
+        inputRefs[animation::knocked] = {A, NO_INPUT};
+        inputRefs[animation::knockDown] = {A, NO_INPUT};
+        inputRefs[animation::getupG1] = {A, NO_INPUT}; inputRefs[animation::getupG2] = {A, NO_INPUT}; inputRefs[animation::getupG3] = {A, NO_INPUT};
+        inputRefs[animation::getupG4] = {A, NO_INPUT}; inputRefs[animation::getupG5] = {A, NO_INPUT};
+        inputRefs[animation::lightLand] = {A, NO_INPUT}; inputRefs[animation::heavyLand] = {A, NO_INPUT};
 
 
         for (int b : leniencies) {

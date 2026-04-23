@@ -8,6 +8,7 @@
 #include "SFML/Graphics.hpp"
 #include "vector"
 #include "array"
+#include "random"
 //contains the stuff necessary for rendering
 namespace graphics {
 
@@ -24,6 +25,57 @@ namespace graphics {
         EFFECTS_FRONT = 8,
         FOREGROUND = 9,
     };
+
+    class Camera {
+    private:
+        std::mt19937 rng{std::random_device{}()};
+        std::uniform_real_distribution<double> dist{-1.f, 1.f};
+    public:
+        double x = 0;
+        double y = 0;
+        double actualX = 0;
+        double actualY = 0;
+        double shakeX = 0;
+        double shakeY = 0;
+        double shakeMag = 0;
+        double maxShakeMag = 0;
+        int shakeFrames = 0;
+        int shakeTime = 0;
+        double inv_time = 0;
+
+        void applyShake(double mag, int frames) {
+            shakeFrames = 0;
+            shakeTime = frames;
+            maxShakeMag = mag;
+            shakeMag = maxShakeMag;
+            if (shakeTime != 0) {
+                inv_time = 1.0/ shakeTime;
+            }
+            else {
+                inv_time = 0;
+            }
+        }
+
+        void update(double inX, double inY) {
+            x = actualX = inX;
+            y = actualY = inY;
+            if (shakeFrames < shakeTime ) {
+                double mag = (shakeFrames * inv_time) - 1.0;
+                shakeMag = maxShakeMag * mag * mag;
+
+                x += dist(rng) * shakeMag;
+                y += dist(rng) * shakeMag;
+
+                shakeFrames ++;
+            }
+            else {
+                shakeFrames = 0;
+                shakeTime = 0;
+                shakeMag = 0;
+            }
+        }
+    };
+
 
     class ActiveSprite{
     public:
@@ -51,6 +103,61 @@ namespace graphics {
 
         ~ActiveSprite() {
             delete sprite;
+        }
+    };
+    std::array<std::array<int,40>,20> tilesets;
+    class TileMap : public sf::Drawable , public sf::Transformable {
+    private:
+        sf::Texture m_tileset;
+        sf::VertexArray m_vertices;
+
+        virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const {
+            // Apply the transform (position, rotation, scale)
+            states.transform *= getTransform();
+            // Apply the tileset texture
+            states.texture = &m_tileset;
+            // Draw the vertex array
+            target.draw(m_vertices, states);
+        }
+
+    protected:
+    public:
+        int width;
+        int height;
+        bool load (const std::string& tileset, sf::Vector2u tileSize, const int* tiles, unsigned int width, unsigned int height) {
+            if (!m_tileset.loadFromFile(tileset)) return false;
+
+            this->width = width * tileSize.x;
+            this->height = height * tileSize.y;
+
+            m_vertices.setPrimitiveType(sf::Quads);
+            m_vertices.resize(width * height * 4);
+
+            for (unsigned int i = 0; i < width; ++i)
+                for (unsigned int j = 0; j < height; ++j) {
+                    // Get the current tile number
+                    int tileNumber = tiles[i + j * width];
+
+                    // Find its position in the tileset texture
+                    int tu = tileNumber % (m_tileset.getSize().x / tileSize.x);
+                    int tv = tileNumber / (m_tileset.getSize().x / tileSize.x);
+
+                    // Pointer to the current tile's quad
+                    sf::Vertex* quad = &m_vertices[(i + j * width) * 4];
+
+                    // Define its 4 corners
+                    quad[0].position = sf::Vector2f(i * tileSize.x, j * tileSize.y);
+                    quad[1].position = sf::Vector2f((i + 1) * tileSize.x, j * tileSize.y);
+                    quad[2].position = sf::Vector2f((i + 1) * tileSize.x, (j + 1) * tileSize.y);
+                    quad[3].position = sf::Vector2f(i * tileSize.x, (j + 1) * tileSize.y);
+
+                    // Define its 4 texture coordinates
+                    quad[0].texCoords = sf::Vector2f(tu * tileSize.x, tv * tileSize.y);
+                    quad[1].texCoords = sf::Vector2f((tu + 1) * tileSize.x, tv * tileSize.y);
+                    quad[2].texCoords = sf::Vector2f((tu + 1) * tileSize.x, (tv + 1) * tileSize.y);
+                    quad[3].texCoords = sf::Vector2f(tu * tileSize.x, (tv + 1) * tileSize.y);
+                }
+            return true;
         }
     };
 
@@ -93,19 +200,32 @@ namespace graphics {
     class Backdrop {
     private:
         std::vector<std::array<double, 2>> layerPositions;
+
         std::vector<double> layerDepths;
+        std::vector<sf::Vector2i> layerOffsets;
+
+        std::vector<sf::Texture> layerTextures;
         std::vector<int> layerFrames;
+
 
     protected:
     public:
+        void update(sf::Vector2f camPos) {
+            for (auto pos: layerPositions) {
+                pos[0] = -camPos.x / layerDepths[0];
+            }
+        }
 
 
     };
 
 
+    const sf::Vector2i internalRes(300, 165); // the game's internal resolution
+    const double scale = 4;
 
-    const sf::Vector2u internalRes(320, 180); // the game's internal resolution
-    sf::Vector2u windowSize(960, 540); // actual size of the game window
+    inline sf::Vector2i windowSize(internalRes.x * scale, internalRes.y * scale); // actual size of the game window
+
+
 
     sf::RenderTexture rt; // the texture that the game renders to
 }

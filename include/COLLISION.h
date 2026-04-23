@@ -194,6 +194,14 @@ namespace collision {
         }
     };
 
+    enum knockDownType {
+        KN_none = 0,
+        KN_light,
+        KN_heavy,
+        KN_heavy_bounce,
+        KN_heavy_AA,
+    };
+
     //TODO: plan HitBox class
     class HitBox: public CollisionBox {
     friend class actors::Fighter;
@@ -205,7 +213,7 @@ namespace collision {
         int knockBackXA;//the amount of knockback applied to an aerial target in the X direction
         int knockBackYA;//the amount of knockback applied to an aerial target in the Y direction
         int knockBackTime;//the amount of time that knockback on a grounded opponent is applied over
-        bool knockDown;//whether this hitbox applies knockdown on hit
+        int knockDown;//whether this hitbox applies knockdown on hit
         bool isActive = true;
 
         int id;//the id of this hitbox
@@ -221,6 +229,8 @@ namespace collision {
         hitCon triggerCon;
 
         int trigger;//ID of the animation triggered on hit
+
+        bool projectile = false;
     protected:
     public:
         HitBox(std::vector<std::array<int,4>> &bounds, std::vector<std::string> datLines) :  CollisionBox(bounds) {
@@ -337,6 +347,9 @@ namespace collision {
         void setWeight(util::weight h) { bWeight = h; }
 
         // --- Trigger animation ---
+
+        [[nodiscard]] int getTriggerCon() const { return triggerCon; }
+
         [[nodiscard]] int getTriggerType() const { return trigger; }
         void setTrigger(int t) { trigger = t; }
 
@@ -344,6 +357,9 @@ namespace collision {
 
         void setActive(bool state) {isActive = state;}
         [[nodiscard]] bool getActive() const {return isActive;}
+
+        void setProjectile(bool state) {projectile = state;}
+        [[nodiscard]] bool isProjectile() const {return projectile;}
     };
 
     //TODO: plan HurtBox class

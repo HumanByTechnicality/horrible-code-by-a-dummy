@@ -103,6 +103,11 @@ namespace util {
         return tokens;
     }
 
+    int sign(double in) {
+        if (in>0) return 1;
+        if (in<0) return -1;
+        return 0;
+    }
     template <typename T>
     class circularBuffer {
     private:

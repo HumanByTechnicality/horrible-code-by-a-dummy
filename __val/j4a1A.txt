@@ -20,6 +20,8 @@ iframes:-1x-1
 armorframes:-1x-1
 meterUsed:0
 active:1
+weight:02
+
 
 //ending animations
 endframeorder:0x-1

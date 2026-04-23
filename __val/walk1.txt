@@ -47,6 +47,15 @@ HURTBOX_END:
 
 hurtboxorder:30x0
 
+//pushing data
+PUSHBOX_START:
+boxid:0
+pos:-13x52,30x43
+SAVE:------
+PUSHBOX_END:
+
+pushboxorder:100x0
+
 //buffer data
 BUFFER_START:
 BUFFER_END:

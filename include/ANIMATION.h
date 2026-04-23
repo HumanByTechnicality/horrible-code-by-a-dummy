@@ -27,7 +27,11 @@ namespace animation {
     inline bool nullTextureLoaded = NullTexture.loadFromFile("../__pic/NULLTEXTURE.png");
     inline std::vector<TextureWrapper> textures = {TextureWrapper{}};
 
-
+    struct spawnInfo {
+        int projId;
+        float x;
+        float y;
+    };
 
     class Animation {
     protected:
@@ -43,6 +47,7 @@ namespace animation {
 
         bool active = false;
 
+
         animType animType;
 
         double momentumCarry = 0;
@@ -50,16 +55,31 @@ namespace animation {
         std::vector<bool> frontFrames;//the set of frames where the animation will always be shown in behind
         std::vector<collision::HitBox> hitBoxes; //the set of hitboxes associated with this animation
         std::vector<collision::HurtBox> hurtBoxes; //the set of hurtboxes associated with this animation
+        std::vector<collision::CollisionBox> pushBoxes; //the set of push boxes associated with this animation
         std::vector<std::vector<int> > hurtBoxOrder;
         std::vector<std::vector<int> > hitBoxOrder;
+        std::vector<int> pushBoxOrder;
         std::array<collision::HitBox *, 3> activeHitBoxes = {nullptr, nullptr, nullptr};
         std::array<collision::HurtBox *, 3> activeHurtBoxes = {nullptr, nullptr, nullptr};
+        collision::CollisionBox * activePushBox = nullptr;
+
+        std::vector<std::vector<int>> cancels;//the ids of animations which can be cancelled into on any given frame
 
         std::vector<int> frameorder; //the order of frames in this animation, by layer
 
         std::vector<std::array<double, 2> > movements; //da movements
         std::vector<double> gravity; //when and how hard gravity applies to the move
         sf::Texture *texture; //the texture associated with this animation
+
+        std::vector<std::vector<int>> projectileFrames;
+        std::vector<std::string> projectileFiles;
+
+        std::vector<spawnInfo> spawns;
+
+        int weight = 0;
+
+
+        int landAnim = 02100;
     public:
         std::vector<graphics::layerID> layers; //the layers covered by the animation
         int numLayers; //the number of layers the animation covers
@@ -68,6 +88,7 @@ namespace animation {
 
         Animation(std::string animId) {
             //initialize default values (remove "garbage")
+            landAnim = 02100;
             int parseType = 0;
             width = 0;
             height = 0;
@@ -142,6 +163,9 @@ namespace animation {
                         if (flag[0] == "active") {
                             active = stoi(flag[1]);
                         }
+                        if (flag[0] == "weight") {
+                            weight = stoi(flag[1]);
+                        }
 
                         // sets frameNum
                         if (flag[0] == "framenum") {
@@ -164,12 +188,15 @@ namespace animation {
                                         //std::cout << std::stoi(data2[1]) << std::endl;
                                         movements.push_back({0, 0});
                                         gravity.push_back(0.0);
+                                        projectileFrames.push_back({});
                                         length++;
                                     }
                                 }
                             }
                         }
-
+                        else if (flag[0] == "landanim") {
+                            landAnim = stoi(flag[1]);
+                        }
                         //sets frameOrder
                         else if (flag[0] == "gravity") {
                             int num = 0;
@@ -292,11 +319,74 @@ namespace animation {
 
                             // Clamp to total frames
                         }
+
+                        if (flag[0] == "pushboxorder") {
+                            // Example: "30x0,2"
+                            std::vector<std::string> tokens = util::split(flag[1], ' ');
+
+                            for (auto &t: tokens) {
+                                if (t.empty()) continue;
+
+                                auto parts = util::split(t, 'x');
+                                if (parts.size() != 2) continue;
+
+                                int duration = std::stoi(parts[0]);
+                                std::string boxList = parts[1];
+
+                                // Sentinel: -1x-1 means "no hurtboxes"
+                                if (duration == -1 && boxList == "-1") {
+                                    hurtBoxOrder.resize(frameorder.size());
+                                    for (auto &v: hurtBoxOrder) v.clear();
+                                    continue;
+                                }
+
+                                // Expand RLE
+                                for (int i = 0; i < duration; i++) {
+                                    pushBoxOrder.push_back(stoi(boxList));
+                                }
+
+                            }
+
+                            // Clamp to total frames
+                            pushBoxOrder.resize(frameorder.size(),-1);
+                        }
+
                         if (flag[0] == "offset") {
                             auto parts = util::split(flag[1], 'x');
                             if (parts.size() >= 2) {
                                 xOffset = std::stoi(parts[0]);
                                 yOffset = std::stoi(parts[1]);
+                            }
+                        }
+
+                        if (flag[0] == "projectiles") {
+                            std::vector<std::string> tokens = util::split(flag[1], ' ');
+                            projectileFiles = tokens;
+                        }
+
+                        if (flag[0] == "projectilepos") {
+                            std::vector<std::string> tokens = util::split(flag[1], ' ');
+                            float x = 0;
+                            float y = 0;
+                            int id = 0;
+                            for (auto &t: tokens) {
+                                auto parts = util::split(t, ',');
+                                if (parts.size() >= 1) id = std::stoi(parts[0]);
+                                if (parts.size() >= 2) x = std::stof(parts[1]);
+                                if (parts.size() >= 3) y = std::stof(parts[2]);
+                                spawns.emplace_back(id,x,y);
+                            }
+                        }
+
+                        if (flag[0] == "spawnframes") {
+                            std::vector<std::string> tokens = util::split(flag[1], ' ');
+                            int frame = 0;
+                            int id = 0;
+                            for (auto &t: tokens) {
+                                auto parts = util::split(t, ',');
+                                if (parts.size() >= 1) frame = std::stoi(parts[0]);
+                                if (parts.size() >= 2) id = std::stof(parts[1]);
+                                projectileFrames[frame].push_back(id);
                             }
                         }
 
@@ -321,6 +411,12 @@ namespace animation {
                         if (flag[0] == "hurtbox_start") {
                             parseType = 2;
                             currentID++;
+                            localBounds.clear();
+                        }
+
+                        if (flag[0] == "pushbox_start") {
+                            parseType = 3;
+                            currentID = 0;
                             localBounds.clear();
                         }
 
@@ -465,6 +561,35 @@ namespace animation {
                             localBounds.clear();
                         }
                     } else if (parseType == 3) {
+                        if (flag[0] == "hurtbox_end") {
+                            parseType = 0;
+                            continue;
+                        }
+
+                        if (flag[0] == "pos") {
+                            // pos:-13x45,26x45
+                            localBounds.clear();
+                            auto parts = util::split(flag[1], ',');
+                            for (int i = 0; i < parts.size() - 1; i += 2) {
+                                auto xy = util::split(parts[i], 'x');
+                                auto wh = util::split(parts[i + 1], 'x');
+                                if (xy.size() == 2 && wh.size() == 2) {
+                                    int x = std::stoi(xy[0]);
+                                    int y = std::stoi(xy[1]);
+                                    int width = std::stoi(wh[0]);
+                                    int height = std::stoi(wh[1]);
+                                    localBounds.emplace_back(std::array<int, 4>{x, y, width, height});
+                                }
+                            }
+                        }
+                        if (flag[0] == "boxid") {
+                            currentID = stoi(flag[1]);
+                        }
+                        if (flag[0].rfind("save", 0) == 0) {
+                            collision::CollisionBox hb(localBounds);
+                            pushBoxes.push_back(hb);
+                            localBounds.clear();
+                        }
                     }
                 }
             }
@@ -505,6 +630,10 @@ namespace animation {
 
         [[nodiscard]] int getAnchor() const {
             return anchor;
+        }
+
+        [[nodiscard]] std::vector<std::string> getProjectileNames() const {
+            return projectileFiles;
         }
 
         [[nodiscard]] int getWidth() const {
@@ -556,6 +685,23 @@ namespace animation {
         }
 
         [[nodiscard]] double getXOffset(int frame) const {
+        }
+
+        void markProjectiles() {
+            for (auto& Hb : hitBoxes) {
+                Hb.setProjectile(true);
+            }
+        }
+
+        void unmarkProjectiles() {
+            for (auto& Hb : hitBoxes) {
+                Hb.setProjectile(false);
+            }
+        }
+
+
+        int getLength() {
+            return frameorder.size();
         }
 
         void updateBoxes(int x, int y, util::direction facing, int frame) {
@@ -619,6 +765,27 @@ namespace animation {
             } catch (std::out_of_range &e) {
                 activeHurtBoxes = {nullptr, nullptr, nullptr};
             }
+
+            /*activePushBox = nullptr;
+            try {
+                if (pushBoxOrder.at(frame)<pushBoxes.size() && pushBoxes.size()>0) {
+                    activePushBox = &pushBoxes.at(pushBoxOrder.at(frame));
+                }
+            }catch (std::out_of_range &e) {
+                activePushBox = nullptr;
+            }*/
+        }
+
+        [[nodiscard]] std::vector<spawnInfo> getSpawns(int frame) const {
+            std::vector<spawnInfo> spawnOnFrame;
+            for (int s: projectileFrames[frame]) {
+                spawnOnFrame.push_back(spawns[s]);
+            }
+            return spawnOnFrame;
+        }
+
+        [[nodiscard]] std::vector<std::string> getProjectileTypes(int frame) const {
+            return projectileFiles;
         }
 
         [[nodiscard]] std::array<collision::HitBox *, 3> *getActiveHitBoxes() {
@@ -631,21 +798,48 @@ namespace animation {
             return &activeHurtBoxes;
         }
 
+        [[nodiscard]] collision::CollisionBox * getActivePushBox() {
+            return activePushBox;
+        }
+
+        [[nodiscard]] std::vector<int> getCancels(int frame) const {
+            return cancels[frame];
+        }
+
+        [[nodiscard]] int getLandAnim() const {
+            return landAnim;
+        }
+
+        [[nodiscard]] int getWeight() const {
+            return weight;
+        }
+
         void reactivate() {
-            for (collision::HitBox hb:hitBoxes) {
+            for (auto& hb:hitBoxes) {
                 hb.setActive(true);
             }
         }
 
         void doHit(collision::HitBox* box) {
-            if (true) {
-                int id = box->getID();
-                for (collision::HitBox hb:hitBoxes) {
-                    if (hb.getID() == id) {
-                        hb.setActive(false);
-                    }
+            int id = box->getID();
+            for (auto& hb:hitBoxes) {
+                //std::cout<<"check inactive"<<std::endl;
+                //std::cout<<id<<" "<<hb.getID()<<std::endl;
+                if (hb.getID() == id) {
+                    hb.setActive(false);
+                    //std::cout<<"set inactive"<<std::endl;
                 }
             }
+
+        }
+
+
+        std::vector<int> getHbIdxOnFrame(int frame) {
+            return hitBoxOrder[frame];
+        }
+
+        std::vector<collision::HitBox> getHitBoxes() {
+            return hitBoxes;
         }
     };
 
@@ -706,7 +900,6 @@ namespace animation {
     class particleType {
     private:
         int maxLifeSpan;
-
 
 
         spawnBehavior SB = Sb_none;
@@ -771,6 +964,14 @@ namespace animation {
             float prevval;
             int idx;
             switch (SB) {
+                case Sb_static:
+                    for (int i = 0; i < numDirectionalBuckets; i++) {
+                        for (int j = 0; j < numVelocityBuckets; j++) {
+                            velocityBuckets[0][0][i][j] = sParam[0];
+                            velocityBuckets[1][0][i][j] = sParam[1];
+                        }
+                    }
+                    break;
                 case Sb_randCircle:
                     //[0] Vmax, [1] Vmin
                     for (int i = 0; i < numDirectionalBuckets; i++) {
@@ -853,6 +1054,11 @@ namespace animation {
             }
 
             switch (TB) {
+                case Tb_blip:
+                    for (int i = 0; i<numLifespanBuckets; i++ ) {
+                        lifespanBuckets[i] = tParam[0];
+                    }
+                    break;
                 default:
                     for (int i = 0; i<numLifespanBuckets; i++ ) {
                         lifespanBuckets[i] = tParam[0];
@@ -957,7 +1163,7 @@ namespace animation {
                     VxVals[i] = particleTypes[PT].velocityBuckets[0][0][dBuck][vBuck];
                     VyVals[i] = particleTypes[PT].velocityBuckets[1][0][dBuck][vBuck];
 
-                    particleTypes[i] = particleTypes[PT];
+                    typeNums[i] = PT;
                     statuses[i] = P_spawned;
 
                     totalNum++;
@@ -997,6 +1203,12 @@ namespace animation {
                 yVals[i] += vy;
             }
         }
+
+        void addParticle(particleType P) {
+            particleTypes.push_back(P);
+        }
     };
+
+
 }
 #endif

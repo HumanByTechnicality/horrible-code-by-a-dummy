@@ -39,12 +39,17 @@ hitboxorder:-1x-1
 
 //hurtbox data
 HURTBOX_START:
-pos:-13x45,26x45
+pos:-7x34,21x14,-12,50,28x16,4x61,14x14
+boxid:0
+type:hurt
+SAVE:------
+pos:-7x34,20x13,-12,50,29x16,3x60,14x14
+boxid:1
 type:hurt
 SAVE:------
 HURTBOX_END:
 
-hurtboxorder:-1x-1
+hurtboxorder:4x0 4x1
 
 //buffer data
 BUFFER_START:

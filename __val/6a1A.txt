@@ -3,7 +3,7 @@ file:6a1A.png
 
 //main-line animation
 framenum:10
-frameorder:2x0 4x1 4x2 3x3 2x4 2x5 6x6 4x7 3x8 1x9
+frameorder:4x1 4x2 3x3 2x4 2x5 6x6 4x7 3x8 1x9
 
 input:6a
 
@@ -17,6 +17,7 @@ iframes:-1x-1
 armorframes:-1x-1
 meterUsed:0
 active:1
+weight:03
 
 //ending animations
 endframeorder:0x-1
@@ -37,12 +38,12 @@ boxid:0
 pos:22x22,34x9,42x28,24x10,31x33,29x7
 damage:20
 type:1,1,0,0,0,-1
-stun:14,8
+stun:20,8
 knockback:4x0,4x2,5
 SAVE:------
 HITBOX_END:
 
-hitboxorder:15x-1 4x0 14x-1
+hitboxorder:11x-1 4x0 16x-1
 
 //hurtbox data
 HURTBOX_START:

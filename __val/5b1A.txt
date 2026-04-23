@@ -3,7 +3,7 @@ file:5b1A.png
 
 //main-line animation
 framenum:8
-frameorder:2x0 4x1 3x2 2x3 2x4 3x5 6x6 6x7
+frameorder:2x0 5x1 5x2 3x3 3x4 3x5 6x6 6x7
 
 input:5b
 
@@ -17,6 +17,8 @@ iframes:-1x-1
 armorframes:-1x-1
 meterUsed:0
 active:1
+weight:04
+
 
 //ending animations
 endframeorder:0x-1
@@ -30,6 +32,10 @@ transcondition:NULL
 framesize:74x64
 frameanchor:25x10
 offset:0x0
+
+projectiles:z_pr01
+projectilepos:1,20,20
+spawnframes:20,0
 
 //hitbox data
 HITBOX_START:

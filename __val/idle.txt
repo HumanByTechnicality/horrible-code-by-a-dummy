@@ -26,7 +26,7 @@ transanim:NULL
 transcondition:NULL
 
 //frame conditions
-framesize:50x64
+framesize:40x64
 frameanchor:15x10
 offset:0x0
 
@@ -53,6 +53,15 @@ SAVE:------
 HURTBOX_END:
 
 hurtboxorder:12x0 6x1 12x2
+
+//pushing data
+PUSHBOX_START:
+boxid:0
+pos:-13x52,30x43
+SAVE:------
+PUSHBOX_END:
+
+pushboxorder:100x0
 
 //buffer data
 BUFFER_START:

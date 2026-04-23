@@ -20,6 +20,7 @@ iframes:-1x-1
 armorframes:-1x-1
 meterUsed:0
 active:1
+weight:01
 
 //ending animations
 endframeorder:0x-1
@@ -39,9 +40,9 @@ HITBOX_START:
 boxid:0
 pos:10x37,19x17
 damage:20
-type:0,0,0,0,-1
+type:2,0,0,0,0
 stun:14,8
-knockback:4x0,4x2,5
+knockback:4x0,1x0,5
 SAVE:------
 HITBOX_END:
 

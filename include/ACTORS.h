@@ -5,6 +5,7 @@
 #ifndef NEWGAME_ACTORS_H
 #define NEWGAME_ACTORS_H
 #include <array>
+#include <utility>
 #include <vector>
 #include "UTIL.h"
 #include "ANIMATION.h"
@@ -44,7 +45,9 @@ namespace actors {
         std::vector<Animation> animations;//list of this actor's set of animations
 
         std::array<collision::HitBox*,3> *activeHitBoxes;//references to the hitboxes active for the fighter
+        std::array<collision::HitBox*,12> HB = {nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr};
         std::array<collision::HurtBox*,3> *activeHurtBoxes;//references to the hurtboxes active for the fighter
+        std::array<collision::HurtBox*,12> UB = {nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr};
         std::array<collision::CollisionBox*,3> *activePushBoxes;//refrences to the pushboxes active for the fighter
 
     public:
@@ -63,12 +66,18 @@ namespace actors {
 
         virtual collision::hitType hit(collision::HitBox &box);
 
-        virtual std::array<collision::HitBox*,3>* getHitBoxes() {
-            return animations[currentID].getActiveHitBoxes();
+        virtual std::array<collision::HitBox*,12>* getHitBoxes() {
+            HB = {nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr};
+            auto hb = animations[currentID].getActiveHitBoxes();
+            std::copy(hb->begin(), hb->begin()+3, HB.begin());
+            return &HB;
         };
 
-        virtual std::array<collision::HurtBox*,3>* getHurtBoxes() {
-            return animations[currentID].getActiveHurtBoxes();
+        virtual std::array<collision::HurtBox*,12>* getHurtBoxes() {
+            UB = {nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr};
+            auto hb = animations[currentID].getActiveHurtBoxes();
+            std::copy(hb->begin(), hb->begin()+3, UB.begin());
+            return &UB;
         };
 
         const sf::Texture* getTexture(int anim) {
@@ -168,6 +177,10 @@ namespace actors {
     private:
     protected:
         int lifeSpan = 0;
+
+        int maxNum = 0;
+        //std::vector<Projectile*> activeProjectiles;
+
         bool floorBounce = false;
         bool wallBounce = false;
         bool explodeOnEnd = true;
@@ -176,13 +189,19 @@ namespace actors {
 
         std::array<float,4> PbParams;
 
-        float spawnVx = 0;
-        float spawnVy = 0;
+        float spawnVx[5] = {0,0,0,0,0};
+        float spawnVy[5] = {0,0,0,0,0};
 
-        void updateMember(Projectile* child, Fighter& opp);
+        int id = -1;
+
+        void updateMember(Projectile* child);
     public:
-        ProjectileType(const std::string& file, std::vector<std::string> anims):Actor(anims,0) {
+        std::string filename = "";
+        ProjectileType(const std::string& file, std::vector<std::string> anims):Actor(std::move(anims),0) {
             PbParams = {0,0,0,0};
+
+            filename = file;
+
 
             std::string directory = "../";
             std::ifstream vals(directory + "__val/" + file + ".txt");
@@ -211,6 +230,10 @@ namespace actors {
                         }
                     }
 
+                    else if (flag[0] == "id") {
+                        id = stoi(flag[1]);
+                    }
+
                     else if (flag[0] == "behavior") {
                         auto dat = util::split(flag[1],' ');
                         Pb = static_cast<projectileBehavior>(stoi(dat[0]));
@@ -223,12 +246,66 @@ namespace actors {
                         }
                     }
 
+                    else if (flag[0] == "velocity") {
+                        auto dat = util::split(flag[1],' ');
+                        for (int i = 0; i<5 && i< dat.size(); i++) {
+                            auto parts = util::split(dat[i],'x');
+                            if (parts.size()>0) spawnVx[i] = stof(parts[0]);
+                            if (parts.size()>1) spawnVy[i] = stof(parts[1]);
+                        }
+                    }
+
                     else if (flag[0] == "lifespan") {
                         lifeSpan = stoi(flag[1]);
                     }
+
+
+
                 }
             }
+
+            //mark all hitboxes as pertaining to a projectile
+            for (auto& anim: animations) {
+                anim.markProjectiles();
+            }
         }
+
+        [[nodiscard]] float getVx(int bucket) const {
+            if (bucket <0 || bucket > 4) {
+                return 0xbad;
+            }
+            return spawnVx[bucket];
+        }
+
+        [[nodiscard]] float getVy(int bucket) const {
+            if (bucket <0 || bucket > 4) {
+                return 0xbad;
+            }
+            return spawnVy[bucket];
+        }
+
+        [[nodiscard]] int getID() const {return id;}
+
+        [[nodiscard]] ProjectileType* getThis() {
+            return this;
+        }
+
+        std::vector<std::vector<collision::HitBox>> getHB() {
+            std::vector<std::vector<collision::HitBox>> HB;
+            for (auto& anim:animations) {
+                HB.push_back(anim.getHitBoxes());
+            }
+            return HB;
+        }
+
+        std::vector<int> getHbIdxOnFrame(int anim, int frame) {
+            return animations[currentID].getHbIdxOnFrame(frame);
+        }
+
+        ~ProjectileType() {
+            std::cout << "CRITICAL: ProjectileType at " << (void*)this << " is being DESTROYED!" << std::endl;
+        }
+
     };
 
     //Any projectile TODO: plan Projectile class
@@ -240,13 +317,15 @@ namespace actors {
 
         int startTime = 0;
         int currentTime = 0;
-
+        std::array<std::array<collision::HitBox,3>,6> hitBoxes;
 
         projectileState state = NULL_PROJECTILE;//the projectile's current state
         int owner = -1;//the projectile's owner's ID
         int currentFrame = -1;//the current frame of the projectile's animation
 
-        ProjectileType* parent;
+        ProjectileType* parent = nullptr;
+        std::array<collision::HitBox*,3> activeHB;
+
 
     public:
 
@@ -254,15 +333,48 @@ namespace actors {
             state = NULL_PROJECTILE;
         }
 
-        void spawn(Projectile & parent) {
+        void spawn(ProjectileType & daParent, int bucket, util::direction face) {
             state = spawning;
+            dx = daParent.getVx(bucket);
+            dy = daParent.getVy(bucket);
+            facing = face;
+
+            setParent(daParent);
+            //std::cout << "DEBUG: Projectile updating with parent at: " << (void*)parent << std::endl;
+            //daParent.activeProjectiles.push_back(this);
+            currentFrame = 0;
+            startTime = 0;
+            currentTime = 0;
+        }
+
+        void despawn() {
+            parent = nullptr;
+            state = NULL_PROJECTILE;
         }
 
         void place(double placeX, double placeY, direction placeFace) {
             state = active;
+            x = placeX;
+            y = placeY;
+            dx *= (int)placeFace;
+            facing = placeFace;
         }
 
         void setParent(ProjectileType& parent) {
+            hitBoxes = {
+                collision::HitBox(),collision::HitBox(),collision::HitBox(),
+                collision::HitBox(),collision::HitBox(),collision::HitBox(),
+                collision::HitBox(),collision::HitBox(),collision::HitBox(),
+                collision::HitBox(),collision::HitBox(),collision::HitBox(),
+                collision::HitBox(),collision::HitBox(),collision::HitBox(),
+                collision::HitBox(),collision::HitBox(),collision::HitBox(),
+            };
+            auto HB = parent.getHB();
+            for (int i = 0; i<6 && i< HB.size(); i++) {
+                for (int j = 0; j<3 && j<HB[i].size(); j++) {
+                    hitBoxes[i][j] = HB[i][j];
+                }
+            }
             this->parent = &parent;
         }
 
@@ -270,45 +382,109 @@ namespace actors {
             //does nothing because I needed different arguments. is here for consistency.
         }
 
-        void projectileUpdate(double camX, double camY, Fighter& opp) {
-            parent->updateMember(this, opp);
-            switch (state) {
-                case active:
-                    if (endAnim) {
-                        currentFrame = -1;
-                    }
-                    break;
-                case exploding:
-                    if (endAnim) {
-                        state = NULL_PROJECTILE;
-                    }
-                    break;
-            }
-            currentFrame ++;
-            if (currentFrame >= animations[currentID].length -1) {
-                currentFrame = animations[currentID].length -1;
-                endAnim = true;
+        void projectileUpdate(double camX, double camY) {
+            //std::cout << "DEBUG: Projectile updating with parent at: " << (void*)parent << std::endl;
+            if (parent != nullptr) {
+                parent->updateMember(this);
+                auto HbIdx = parent->getHbIdxOnFrame(currentID, currentFrame);
+                switch (state) {
+                    case active:
+                        currentID = 0;
+                        if (endAnim) {
+                            currentFrame = 0;
+                            endAnim = false;
+                        }
+                        //std::cout<<"active"<<std::endl;
+                        //std::cout<<"zero"<<std::endl;
+                        //std::cout<<"one"<<std::endl;
+
+                        for (int i = 0;i<3; i++) {
+                            if (i<HbIdx.size()) {
+                                if (HbIdx[0] == -1) break;
+                                hitBoxes[currentID][HbIdx[i]].placeGlobalBounds(x,y,facing);
+                                activeHB[i] = &hitBoxes[currentID][HbIdx[i]];
+                            }
+                            else {
+                                activeHB[i] = nullptr;
+                            }
+                        }
+                        //std::cout<<"two"<<std::endl;
+                        break;
+                    case exploding:
+                        currentID = 1;
+                        if (endAnim) {
+                            despawn();
+                            endAnim = false;
+                        }
+                        //std::cout<<"exploding"<<std::endl;
+                        break;
+                }
+                currentFrame ++;
+                if (parent != nullptr && currentFrame >= parent->animations[currentID].getLength()-1) {
+                    endAnim = true;
+                }
             }
 
 
+
+            currentTime ++;
+            outwardState[2] = int(facing);
+        }
+
+        void doHit() {
+            if (parent!= nullptr && parent->explodeOnEnd) {
+                state = exploding;
+                currentFrame = 0;
+            }
+            else {
+                despawn();
+            }
         };
 
-        void despawn() {
-            state = NULL_PROJECTILE;
-        }
 
 
         const sf::Texture* getTexture(int anim) {
             return parent->getTexture(anim);
         }
 
+        const sf::Texture* getTexture() {
+            return parent->getTexture(currentID);
+        }
+
         sf::IntRect getTextureRect(int anim, int frame) {
             return parent->getTextureRect(anim, frame);
         }
 
+        sf::IntRect getTextureRect() {
+            return parent->getTextureRect(currentID, currentFrame);
+        }
+
+        [[nodiscard]] projectileState getState() const{
+            return state;
+        }
+
+        sf::Vector2f getSpritePos(double camX, double camY) {
+            if (parent != nullptr) {
+                float Xd;
+                if (facing == direction::RIGHT) {
+                    Xd = x - camX - parent->animations[currentID].getAnchor();
+                }
+                else {
+                    Xd = x - camX + parent->animations[currentID].getAnchor();
+                }
+                float Yd = y-camY + parent->animations[currentID].getHeight();
+                return {Xd, Yd};
+            }
+            return {-200,-200};
+        }
+
+        collision::HitBox* getHitBoxes(int idx) {
+            return activeHB[idx];
+        };
+
     };
 
-    void ProjectileType::updateMember(Projectile* child, Fighter& opp) {
+    void ProjectileType::updateMember(Projectile* child) {
         switch (child->state) {
             case NULL_PROJECTILE:
             case PROJECTILE_STATE_COUNT:
@@ -318,6 +494,8 @@ namespace actors {
                 if (child->currentTime - child->startTime < lifeSpan) {
                     switch (Pb) {
                         case PB_linear:
+                            child->dx = child->dx;
+                            child->dy = child->dy;
                             break;
                         case PB_arc:
                             child->dy -= PbParams[0];
@@ -405,7 +583,8 @@ namespace actors {
         int numUsedInputs = 0;
         int hitStun = 0;//frames of hitstun left
         int blockStun = 0;//frames of blockstun left
-        int knockedDown = 0;//frames of knockdown left
+        int knockedDown = -1;//frames of knockdown left
+        int knockDownType = 0;//type of knockdown
         int knockBackTime = 0;//the amount of time that knockback will be applied over
         int knockBackX = 0;//the amount of knockback in the x direction
         int knockBackY = 0;//the amount of knockback in the y direction
@@ -414,7 +593,7 @@ namespace actors {
         double px = 0;
         double py = 0;
         double EXmeter = 0;//the amount of EX meter that the fighter has built up
-        int hp = 0;//the current health of the fighter (in tenths of a percent)
+        int hp = 500;//the current health of the fighter (in tenths of a percent)
         double gravity = 0.4;//the gravity of the fighter
         double jumpheight = 7;
         int dashCoolDown = 0;
@@ -429,6 +608,8 @@ namespace actors {
         bool actionable = true;//whether the fighter is capable of performing actions
         bool inMove = false;//whether the fighter is currently in an active move
         bool isDead = false;//whether the fighter is K.O'd
+        bool skipnextRequect = false;
+        bool gettingUp = false;
 
         direction walking = direction::NONE;
         direction lastWalking = direction::NONE;
@@ -449,14 +630,16 @@ namespace actors {
         animType lastPassiveAnimation = animType::NONE;//the type of the passive animation on the last frame
         animType currentAnimation = animType::NONE;//the type of the current animation
         animType lastAnimation = animType::NONE;//the type of the last animation
+        collision::hitType hasHit = collision::H_none;//the nature of this animation's hits
         int passiveOrd = 0;
+        int activeOrd = 0;
         int activeID = -1;//the ID of the active animation
         int passiveID = 1;//the ID of the passive animation
         int lastID = 0;//the ID of the last animation
         int currentIndex = 0;//the index of the current animation
 
         //modifiable stats
-        int maxHp = 1000;//the max hp of the fighter (in tenths of a percent)
+        int maxHp = 1500;//the max hp of the fighter (in tenths of a percent)
         double speed = 3;//the speed of the fighter
         double airspeed = 4;//the airspeed of the fighter
         double grabMult = 1;//the damage multiplier applied to the fighter's grab hitboxes
@@ -498,9 +681,13 @@ namespace actors {
         moveRequest currentRequest;//the current move request pending
         bool callForQueueClear = false;//flag that signals the player object to clear its inputs queue
 
-        std::array<int, 12> projectiles = {};//the fighter's active projectiles
+        std::vector<ProjectileType> projectileTypes;
+        std::array<Projectile, 16> projectiles;
 
+        std::array<int,12> projectileOwners = {0,0,0,0,0,0,0,0,0,0,0,0};
+        //std::array<int, 16> projectileActives = {};//the fighter's active projectiles
 
+        collision::CollisionBox * activePushBox = nullptr;
         //misc.
         void endPassiveAnim(bool reset = false) {
             endPassive = false;
@@ -517,11 +704,13 @@ namespace actors {
             activeAnimation = animType::NONE;
             activeID = -1;
             actionable = true;
-            currentFrame = 0;
             px = 0;
             py = 0;
             momentumX = 0;
             momentumY = 0;
+            currentFrame = passiveFrame;
+            currentID = passiveID;
+            hasHit = collision::H_none;
 
         }
 
@@ -547,7 +736,18 @@ namespace actors {
         //checks if the move moveID can be used in the current state
         bool canBeUsed(int moveID, util::inputType startState, bool lenient) const {
             //std::cout<<"checking for usability "<< actionable<<" "<<currentID<<" "<<currentFrame<<std::endl;
-            bool cancel;
+            bool cancel = false;
+            switch (hasHit){
+                case collision::H_clean:
+                case collision::H_clean_air:
+                    if (animations[moveID].getWeight()>animations[currentID].getWeight()) {
+                        cancel = true;
+                        std::cout<<"CANCEL:"<<moveID<< " from " <<currentID<<std::endl;
+                    }
+                    break;
+                default:
+                    break;
+            }
 
             switch (animations[currentID].getAnimType()) {
                 case animType::idle:
@@ -616,6 +816,10 @@ namespace actors {
 
         //PRECONDITION: Moves list is sorted in order of priority (longest first)
         void checkForAction(const sf::Clock &clock) {
+            if (skipnextRequect) {
+                skipnextRequect = false;
+                return;
+            }
             int tolerance = 2;
             std::vector<int> inputChecks(animations.size(), 0);//contains the check status of each input; -1 indicates it failed the check
             std::vector<int> skippedIns(animations.size(), 0);
@@ -655,12 +859,12 @@ namespace actors {
                                 data::leniencies[animations[j].getAnimType()] ==0){
                                 inputChecks[j] = -1;
 
-                            }
+                                }
                             else if (data::leniencies[animations[j].getAnimType()] ==2 &&
                                 (currentIns[i] == util::UP ||currentIns[i] == util::UP_BACK
                                     ||currentIns[i] == util::UP_FRONT)) {
                                 inputChecks[j] = -1;
-                            }
+                                    }
                             else {
                                 skippedIns[j] ++;
                                 isLenient[j] = true;
@@ -676,7 +880,10 @@ namespace actors {
 
             for (int i = 0; i< animations.size(); i++) {
                 animType Type = animations[i].getAnimType();
-                if (inputChecks[i] == data::inputRefs[Type].size() && (!forceToIdle ||
+                if (!gettingUp && (hitStun >0||knockedDown >-1)&&(int)Type>(int)animation::grabthrow) {
+
+                }
+                else if (inputChecks[i] == data::inputRefs[Type].size() && (!forceToIdle ||
                     (Type != animType::uncrouch && Type != animType::land))) {
                     currentRequest = {i,clock.getElapsedTime(), (y <= 0) ? util::G : util::A, isLenient[i]};
                     //std::cout<<"action detected: "<<animations[i].getInputID()<<" "<<animation::getAnimName(static_cast<animType>(animations[i].getInputID()))<<std::endl;
@@ -707,13 +914,24 @@ namespace actors {
 
                     }
                     if (animations[currentRequest.moveID].getActive()&&!exc) {
+                        //make unactionable
                         actionable = false;
+
+                        //reset active parameters to start new animation
                         activeAnimation = animations[currentRequest.moveID].getAnimType();
                         activeID = currentRequest.moveID;
                         activeFrame = 0;
+                        animations[activeID].reactivate();
+
+                        //clear inputs queue
                         callForQueueClear = true;
+
+                        //set momentum
                         px = dx* animations[currentRequest.moveID].getMomentum();
                         py = dy* animations[currentRequest.moveID].getMomentum();
+
+                        //make it so that the animation has not hit yet.
+                        hasHit = collision::H_none;
 
                     }
                     else {
@@ -791,6 +1009,7 @@ namespace actors {
                     if (!noExc) {
                         currentAnimation = animations[currentRequest.moveID].getAnimType();
                         currentID = currentRequest.moveID;
+                        animations[currentID].reactivate();
                         currentFrame = 0;
                         currentRequest = {};
                     }
@@ -802,7 +1021,7 @@ namespace actors {
         Fighter() : Actor(), currentRequest(3) {
             hitStun = 0;
             blockStun = 0;
-            knockedDown = 0;
+            knockedDown = -1;
             knockBackTime = 0;
             knockBackX = 0;
             knockBackY = 0;
@@ -816,19 +1035,35 @@ namespace actors {
         Fighter(std::vector<std::string> moveset, int id = 0) : Actor(moveset, id), currentRequest(3){
             hitStun = 0;
             blockStun = 0;
-            knockedDown = 0;
+            knockedDown = -1;
             knockBackTime = 0;
             knockBackX = 0;
             knockBackY = 0;
             momentumX = 0;
             momentumY = 0;
             EXmeter = 0;
-            hp = 0;
+            hp = maxHp;
             std::sort(animations.begin(),animations.end(),
                               [](const animation::Animation& a, const animation::Animation& b) {
-                                  return static_cast<int>(a.getInputID()) > static_cast<int>(b.getInputID());
+                                  return static_cast<int>(a.getInputID()*100-a.getOrdinality()) > static_cast<int>(b.getInputID()*100-b.getOrdinality());
                               }
             );
+
+            for (const auto& anim: animations) {
+                auto files = anim.getProjectileNames();
+                for (const auto& file: files) {
+                    bool broken = false;
+                    for (auto type: projectileTypes) {
+                        if (type.filename == file) {
+                            broken = true;
+                            break;
+                        }
+                    }
+                    if (!broken) {
+                        projectileTypes.push_back(ProjectileType(file,{file+"_active",file+"_explode"}));
+                    }
+                }
+            };
 
         }
 
@@ -844,20 +1079,29 @@ namespace actors {
 
         void update() override {
             passiveOrd = 0;
-            if (hitStun<=0 && blockStun<=0) {
+            if (hitStun<=0 && blockStun<=0 && knockedDown == -1) {
                 //passiveID = 0;
                 if (landing) {
+                    landing = true;
                     dx = 0;
                     y = 0;
                     dy = 0;
                     px = 0;
                     py = 0;
                     actionable = false;
-                    passiveAnimation = animType::land;
+
                     if (endPassive) {
+                        if (!animations[currentID].getActive()) {
+                            landing = false;
+                            actionable = true;
+                        }
+                        passiveFrame = 0;
+                    }
+
+                    if (endActive) {
                         landing = false;
                         actionable = true;
-                        passiveFrame = 0;
+                        endActiveAnim();
                     }
                 }
 
@@ -921,11 +1165,25 @@ namespace actors {
                     if (y + dy + py <= 0 ) {
                         landing = true;
                         actionable = false;
-                        endActiveAnim();
                         endPassiveAnim();
+                        int id = animations[currentID].getLandAnim();
+                        if (id == 02100) {
+                            endActiveAnim();
+                            passiveAnimation = animType::land;
+                            passiveFrame = 0;
+                        }
+                        else {
+                            int iter = (id-animations[currentID].getID()) * 0.1;
+                            currentID += iter;
+                            activeID = currentID;
+                            activeFrame = 0;
+                            activeAnimation = animations[activeID].getAnimType();
+                            actionable = false;
+                            landing = true;
+                            endActive = false;
+                        }
                         y = 0;
                         dy = 0;
-                        passiveFrame = 0;
                         //std::cout<<"landing start: "<<y<<" "<<dy<<std::endl;
 
                     }
@@ -994,10 +1252,108 @@ namespace actors {
                     }
                 }
             }
+            else if (knockedDown >0 ) {
+                if (framesSinceHit == 0) {
+                    px = knockBackX;
+                    py = knockBackY;
+                }
+                if (landing) {
+                    py = 0;
+                    dy = 0;
+                    y = 0;
+                    if (knockDownType == 0) {
+                        activeAnimation = animType::lightLand;
+
+                    }
+                    else  {
+                        activeAnimation = animType::heavyLand;
+                    }
+                    if (activeID > -1 && currentFrame >= animations[activeID].length-2) {
+                        landing = false;
+                        endActiveAnim();
+                        activeAnimation = animType::knocked;
+                    }
+                    if (knockedDown>0) {
+                        knockedDown--;
+                    }
+                }
+                else if (y>0) {
+                    landing = false;
+                    activeAnimation = animType::knockDown;
+                    py-=gravity;
+
+
+                    if (dy+py>2) {
+                        activeFrame = 4;
+                    }
+                    else if (dy+py > 0) {
+                        activeFrame = 6;
+                    }
+                    else if (dy+py>-2) {
+                        activeFrame = 8;
+                    }
+                    else {
+                        activeFrame = 10;
+                    }
+                    if (y+dy+py <= 0) {
+                        landing = true;
+                        activeFrame = 0;
+                        endActiveAnim();
+                        activeAnimation = static_cast<animType>(animType::lightLand + knockDownType);
+                    }
+                }
+
+                else if (y==0) {
+                    activeAnimation = animType::knocked;
+                    if (activeID > -1 && currentFrame >= animations[activeID].length-2) {
+                        activeFrame = 0;
+                    }
+                    if (abs(px)>0) {
+                        px -= util::sign(dx+px);
+                    }
+                    if (knockedDown>0) {
+                        knockedDown--;
+                    }
+                    if (knockedDown == 0) {
+                        dx = 0; px = 0;
+                        dy = 0; py = 0;
+                        activeFrame = 0;
+                        activeAnimation = animType::getupG1;
+                    }
+
+                }
+
+                for (int i = 0; i< animations.size(); i++) {
+                    if (animations[i].getAnimType() == activeAnimation) {
+                        activeID = i;
+                        break;
+                    }
+                }
+                framesSinceHit = 1000;
+                //std::cout<<landing<<" "<<(int)(activeAnimation)<<" "<<activeFrame<<std::endl;
+            }
+            else if (knockedDown == 0) {
+                activeAnimation = animType::getupG1;
+                if (activeID > -1 && currentFrame >= animations[activeID].length-2) {
+                    passiveAnimation = animType::idle;
+                    passiveFrame = 0;
+                    passiveOrd = 0;
+                    y = 0;
+                    landing = false;
+                    activeFrame = 0;
+                    activeID = -1;
+                    activeAnimation = animType::NONE;
+                    knockedDown = -1;
+                    knockDownType = 0;
+                    hitStun = 0;
+                    actionable = true;
+                }
+
+            }
             else if (hitStun > 0) {
                 actionable = false;
 
-                if (y==0) {
+                if (y<=0) {
                     if (knockBackTime >0) {
                         knockBackTime--;
                         px = knockBackX;
@@ -1008,41 +1364,59 @@ namespace actors {
                         px = 0;
                         py = 0;
                     }
-                }
-                if (knockedDown >0) {
-                    knockedDown--;
+
                 }
                 else {
-                    if (hitReaction == animType::NONE) {
-                        hitStun = 0;
+                    knockBackTime = 0;
+                    if (framesSinceHit == 0) {
+                        px = knockBackX;
+                        py = knockBackY;
                     }
                     else {
-                        activeAnimation = hitReaction;
-                        for (int i = 0; i< animations.size(); i++) {
-                            if (animations[i].getAnimType() == hitReaction) {
-                                activeID = i;
-                                break;
-                            }
+                        py -= gravity;
+                    }
+                    if (y+dy+py<=0 &&hitStun > 0) {
+                        landing = true;
+                        knockDownType = 0;
+                        knockedDown = 40;
+                        activeFrame = 0;
+                    }
+
+                }
+                if (hitReaction == animType::NONE) {
+                    hitStun = 0;
+                    activeFrame = 6;
+                }
+                else {
+                    activeAnimation = hitReaction;
+                    for (int i = 0; i< animations.size(); i++) {
+                        if (animations[i].getAnimType() == hitReaction) {
+                            activeID = i;
+                            break;
                         }
-                        if (framesSinceHit <=2) {
-                            activeFrame = 2;
-                        }
-                        else if (framesSinceHit < hitStun * 2) {
-                            activeFrame = 4;
-                        }
-                        else {
-                            activeFrame = 6;
-                        }
+                    }
+                    if (framesSinceHit <=2) {
+                        activeFrame = 2;
+                    }
+                    else if (framesSinceHit < hitStun * 2) {
+                        activeFrame = 4;
+                    }
+                    else {
+                        activeFrame = 6;
                     }
                 }
 
-                hitStun --;
+                if (hitStun >0) {
+                    hitStun --;
+                }
                 framesSinceHit++;
+                //std::cout<<knockedDown<<std::endl;
 
                 if (hitStun<=0) {
                     actionable = true;
                     endActiveAnim();
                     hitReaction = animType::NONE;
+                    passiveFrame = 0;
                 }
             }
             else if (blockStun > 0){
@@ -1054,11 +1428,14 @@ namespace actors {
             for (int i = 0; i< animations.size(); i++) {
                 if (animations[i].getAnimType()==passiveAnimation && animations[i].getOrdinality() == passiveOrd) {
                     passiveID = i;
-
-
                     //std::cout<<"passiveId: "<<passiveID<<std::endl;
 
                 }
+                /*if (animations[i].getAnimType()==activeAnimation) {
+                    passiveID = i;
+                    //std::cout<<"passiveId: "<<passiveID<<std::endl;
+
+                }*/
             }
 
             passiveFrame++;
@@ -1068,6 +1445,26 @@ namespace actors {
                 currentID = activeID;
                 dx = animations[activeID].getXMove(currentFrame) * static_cast<int>(facing) + px;
                 dy = animations[activeID].getYMove(currentFrame) + py;
+                for (auto& spawn:animations[activeID].getSpawns(currentFrame)) {
+                    bool broken = false;
+                    for (auto &pr:projectiles) {
+                        if (pr.getState() == NULL_PROJECTILE) {
+                            for (int id = 0; id<projectileTypes.size(); id++) {
+                                if (projectileTypes[id].getID() == spawn.projId) {
+                                    //std::cout<<"projectile spawned: "<<id<<std::endl;
+                                    pr.spawn(projectileTypes[id],0,facing);
+                                    pr.place(x+spawn.x * int(facing), y+spawn.y, facing );
+                                    broken = true;
+                                    break;
+                                }
+                            }
+                            if (broken) {
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 //std::cout <<"active current: "<<activeID<<" "<<animations.size()<<std::endl;
             }
             else {
@@ -1089,22 +1486,47 @@ namespace actors {
             }
             x += dx;
             y += dy;
-            outwardState[0] = x;
-            outwardState[1] = y;
+            outwardState[0] = (int)x;
+            outwardState[1] = (int)y;
             outwardState[2] = static_cast<int>(facing);
+
+            for (auto & pr: projectiles) {
+                if (pr.getState() == active || pr.getState() == exploding) {
+                    pr.projectileUpdate(0,0);
+                }
+            }
 
             animations[currentID].updateBoxes(x,y,facing,currentFrame);
 
             activeHitBoxes = animations[currentID].getActiveHitBoxes();
             activeHurtBoxes = animations[currentID].getActiveHurtBoxes();
+            activePushBox = animations[currentID].getActivePushBox();
 
             lastPassiveAnimation = passiveAnimation;
+
+            //std::cout<<currentFrame<<" "<<currentID<<" "<<activeID<<"||";
             /*catch (std::out_of_range &f) {
             }catch (std::bad_array_new_length &g) {
             }*/
         }
 
         void updateProjectiles(int frame);
+
+        std::array<collision::HitBox*,12>* getHitBoxes() override{
+            HB = {nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr};
+            projectileOwners = {-1,-1,-1};
+            auto hb = animations[currentID].getActiveHitBoxes();
+            std::copy(hb->begin(), hb->begin()+3, HB.begin());
+            int next = 3;
+            for (int i = 0; i<9; i++) {
+                if (projectiles[i].getState() == active) {
+                    HB[next] = projectiles[i].getHitBoxes(0);
+                    projectileOwners[next] = i;
+                    next++;
+                }
+            }
+            return &HB;
+        };
 
         void doAction(std::vector<int> directionBuffer, std::vector<sf::Time> timeBuffer) {
         }
@@ -1140,8 +1562,30 @@ namespace actors {
                     return 0;
             }
         }
-        void doHit(collision::HitBox* box, collision::hitType nature = collision::H_blocked) {
-            animations[currentAnimation].doHit(box);
+        int doHit(collision::HitBox* box, int id, collision::hitType nature = collision::H_blocked) {
+            int weight = animations[currentID].getWeight();
+            if (!box->isProjectile()) {
+                hasHit = nature;
+            }
+            if (projectileOwners[id] == -1) {
+                animations[currentID].doHit(box);
+                if (doesExecute[static_cast<int>(box->getTriggerCon())][nature]){
+                    activeFrame = 0;
+                    activeAnimation = static_cast<animType>(box->getTriggerType()*0.01);
+                    activeID+=(box->getTriggerType()%100)*0.1 - animations[currentID].getOrdinality();
+                    animations[activeID].reactivate();
+                    currentRequest = {};
+                    hasHit = collision::H_none;
+                }
+            }
+            else {
+                projectiles[projectileOwners[id]].doHit();
+            }
+
+            if (nature == collision::H_blocked) {
+                return -1;
+            }
+            return weight;
 
         }
 
@@ -1205,12 +1649,23 @@ namespace actors {
                 int h = static_cast<int>(box.getHeight());
                 int w = static_cast<int>(box.getWeight());
                 hitReaction = hitReacts[h][w];
+                activeAnimation = hitReaction;
+                for (int i = 0; i< animations.size(); i++) {
+                    if (animations[i].getAnimType() == hitReaction) {
+                        activeID = i;
+                        break;
+                    }
+                }
+                currentFrame = 2;
+
+                currentID = activeID;
             }
 
             bool blocking = false;
             if (blocking) {
                 return collision::H_blocked;
             }
+
             return collision::H_clean;
 
         }
@@ -1251,6 +1706,9 @@ namespace actors {
             }
 
             hp -= static_cast<int>(dmg);
+            if (hp<0){
+                hp = 0;
+            }
 
             if (armor <=0 ||true) {
                 if (y+dy>0) {
@@ -1268,13 +1726,47 @@ namespace actors {
                     blockStun = box->blockStun;
                 }
                 else {
+                    std::cout<<hitStun<<" ";
                     hitStun = box->hitStun;
+                    std::cout<<hitStun<<std::endl;
                     framesSinceHit = 0;
                 }
 
-                int h = static_cast<int>(box->getHeight());
-                int w = static_cast<int>(box->getWeight());
-                hitReaction = hitReacts[h][w];
+                if (y<=0 &&( box->knockDown<=1 || box->knockDown==4)) {
+                    int h = static_cast<int>(box->getHeight());
+                    int w = static_cast<int>(box->getWeight());
+                    hitReaction = hitReacts[h][w];
+                    knockDownType = 0;
+                    knockedDown = -1;
+                }
+                else if (box->knockDown<=1 ) {
+                    hitReaction = animType::jhit0;
+                    knockDownType = 0;
+                    knockedDown = -1;
+                }
+                else if (box->knockDown==collision::knockDownType::KN_heavy_AA) {
+                    hitReaction = animType::knockDown;
+                    knockDownType = 1;
+                    knockedDown = 50;
+                }
+                else {
+                    hitReaction = animType::knockDown;
+                    knockedDown = 50;
+                    dx = 2 * (int)box->facing;
+                    dy = 6;
+                }
+
+                activeAnimation = hitReaction;
+                activeID = 0;
+                for (int i = 0; i< animations.size(); i++) {
+                    if (animations[i].getAnimType() == hitReaction) {
+                        activeID = i;
+                        break;
+                    }
+                }
+                currentFrame = 2;
+
+                currentID = activeID;
             }
 
             bool blocking = false;
@@ -1303,7 +1795,7 @@ namespace actors {
             else {
                 Xd = x - camX + animations[currentID].getAnchor();
             }
-            float Yd = y-camY + animations[currentID].getHeight()-24;
+            float Yd = y-camY + animations[currentID].getHeight();
             return {Xd, Yd};
         }
 
@@ -1358,7 +1850,7 @@ namespace actors {
 
         void turnTo(direction facing) {
             if (facing == this->facing) return;
-            if (actionable && (y<=0)) {
+            if (actionable && (y-dy<=0) && !landing && !jumping) {
                 this->facing = facing;
             }
         }
@@ -1367,7 +1859,21 @@ namespace actors {
             return static_cast<int>(facing) + 3*(activeID!=-1) - 6 * (hitStun>0) - 12 * frontOverride;
         }
 
+        std::vector<Projectile*> getProjectiles() {
+            std::vector<Projectile*> projectiles;
+            for (int i = 0; i < this->projectiles.size(); i++) {
+                if (this->projectiles[i].getState() == active || this->projectiles[i].getState() == exploding) {
+                    projectiles.push_back(&this->projectiles[i]);
+                    //std::cout<<"pr "<<i<<" "<<projectiles[i]->getSpritePos(0,0).x<<" "<<projectiles[i]->getSpritePos(0,0).y;
+                }
+            }
+            //std::cout<<std::endl;
+            return projectiles;
+        }
 
+        double getHealthProp() {
+            return double(hp)/maxHp;
+        }
 
     };
 
@@ -1388,6 +1894,7 @@ namespace collision {
     struct hitData {
         HitBox* box;
         int prio;
+        int id;
         sf::Rect<double> inteRECTion;//Yes, that is a pun. Shut up. You know what it means.
     };
 
@@ -1396,26 +1903,33 @@ namespace collision {
         auto prio = std::array{-1,-1};
         auto rects = std::array{sf::Rect<double>(),sf::Rect<double>()};
 
+        auto id = std::array{-1,-1};
+
         auto hitboxes = std::array{*fs[0]->getHitBoxes(),*fs[1]->getHitBoxes()};
         auto hurtboxes = std::array{*fs[1]->getHurtBoxes(),*fs[0]->getHurtBoxes()};
         //int maxPrio = -1;
         for (int i = 0; i<=1; i++) {
+            int k = 0;
             for (HitBox* box1 : hitboxes[i]) {
                 if (box1!=nullptr) {
-                    for (HurtBox* box2 : hurtboxes[i]) {
-                        if (box2!=nullptr) {
-                            auto coll = box1->intersects(box2, rects[i]);
-                            if (coll.value) {
-                                box[i] = box1;
-                                break;
+                    if (box1->getActive()) {
+                        for (HurtBox* box2 : hurtboxes[i]) {
+                            if (box2!=nullptr) {
+                                auto coll = box1->intersects(box2, rects[i]);
+                                if (coll.value) {
+                                    box[i] = box1;
+                                    id[i] = k;
+                                    break;
+                                }
                             }
                         }
                     }
                 }
+                k++;
             }
         }
 
-        return std::array{hitData{box[0],0,rects[0]},hitData{box[1],0,rects[1]}};
+        return std::array{hitData{box[0],0,id[0], rects[0]},hitData{box[1],0,id[1],rects[1]}};
     }
 
 
