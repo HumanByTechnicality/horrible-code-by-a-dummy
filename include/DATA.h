@@ -56,7 +56,7 @@ namespace animation {
 
 
         // --- Reserved special inputs (explicit block 56–87) ---
-        g236a = 56, g214a,
+        g236a = 61, g214a,
         g236b, g214b,
         j236a, j214a,
         j236b, j214b,
@@ -65,11 +65,6 @@ namespace animation {
         g623b, g412b,
         j623a, j412a,
         j623b, j412b,
-
-        g632a, g421a,
-        g632b, g421b,
-        j632a, j421a,
-        j632b, j421b,
 
         g41236a, g63214a,
         g41236b, g63214b,
@@ -205,8 +200,8 @@ namespace animation {
 
 //stores data for DTOs
 namespace data {
-    std::array<std::vector<int>, (int)animation::ANIM_TYPE_COUNT> inputRefs;
-    std::array<int, (int)animation::ANIM_TYPE_COUNT> leniencies;
+    inline std::array<std::vector<int>, (int)animation::ANIM_TYPE_COUNT> inputRefs;
+    inline std::array<int, (int)animation::ANIM_TYPE_COUNT> leniencies;
 
     /*used to initialize the array of inputs without some
      *excessive braced-init list that I couldn't read, plus defining input leniencies*/
@@ -282,25 +277,25 @@ namespace data {
 
         inputRefs[animation::g236a] = {G, DOWN, DOWN_FRONT, FRONT ,NORMAL}; inputRefs[animation::g214a] = {G, DOWN, DOWN_BACK, BACK ,NORMAL};
         inputRefs[animation::g623a] = {G, FRONT, DOWN, DOWN_FRONT ,NORMAL}; inputRefs[animation::g412a] = {G, BACK, DOWN_BACK, DOWN ,NORMAL};
-        inputRefs[animation::g632a] = {G, FRONT, DOWN_FRONT, DOWN ,NORMAL}; inputRefs[animation::g421a] = {G, BACK, DOWN, DOWN_BACK ,NORMAL};
+        //inputRefs[animation::g632a] = {G, FRONT, DOWN_FRONT, DOWN ,NORMAL}; inputRefs[animation::g421a] = {G, BACK, DOWN, DOWN_BACK ,NORMAL};
         inputRefs[animation::g41236a] = {G, BACK, DOWN_BACK, DOWN, DOWN_FRONT, FRONT ,NORMAL};
         inputRefs[animation::g63214a] = {G, FRONT, DOWN_FRONT, DOWN, DOWN_BACK, BACK ,NORMAL};
 
         inputRefs[animation::g236b] = {G, DOWN, DOWN_FRONT, FRONT ,SPECIAL}; inputRefs[animation::g214b] = {G, DOWN, DOWN_BACK, BACK ,SPECIAL};
         inputRefs[animation::g623b] = {G, FRONT, NEUTRAL, DOWN, DOWN_FRONT ,SPECIAL}; inputRefs[animation::g412b] = {G, BACK, DOWN_BACK, DOWN ,SPECIAL};
-        inputRefs[animation::g632b] = {G, FRONT, DOWN_FRONT, DOWN ,SPECIAL}; inputRefs[animation::g421b] = {G, BACK, DOWN, DOWN_BACK ,SPECIAL};
+        //inputRefs[animation::g632b] = {G, FRONT, DOWN_FRONT, DOWN ,SPECIAL}; inputRefs[animation::g421b] = {G, BACK, DOWN, DOWN_BACK ,SPECIAL};
         inputRefs[animation::g41236b] = {G, BACK, DOWN_BACK, DOWN, DOWN_FRONT, FRONT ,SPECIAL};
         inputRefs[animation::g63214b] = {G, FRONT, DOWN_FRONT, DOWN, DOWN_BACK, BACK ,SPECIAL};
 
         inputRefs[animation::j236a] = {A, DOWN, DOWN_FRONT, FRONT ,NORMAL}; inputRefs[animation::j214a] = {A, DOWN, DOWN_BACK, BACK ,NORMAL};
         inputRefs[animation::j623a] = {A, FRONT, DOWN, DOWN_FRONT ,NORMAL}; inputRefs[animation::j412a] = {A, BACK, DOWN_BACK, DOWN ,NORMAL};
-        inputRefs[animation::j632a] = {A, FRONT, DOWN_FRONT, DOWN ,NORMAL}; inputRefs[animation::j421a] = {A, BACK, DOWN, DOWN_BACK ,NORMAL};
+        //inputRefs[animation::j632a] = {A, FRONT, DOWN_FRONT, DOWN ,NORMAL}; inputRefs[animation::j421a] = {A, BACK, DOWN, DOWN_BACK ,NORMAL};
         inputRefs[animation::j41236a] = {A, BACK, DOWN_BACK, DOWN, DOWN_FRONT, FRONT ,NORMAL};
         inputRefs[animation::j63214a] = {A, FRONT, DOWN_FRONT, DOWN, DOWN_BACK, BACK ,NORMAL};
 
         inputRefs[animation::j236b] = {A, DOWN, DOWN_FRONT, FRONT ,SPECIAL}; inputRefs[animation::j214b] = {A, DOWN, DOWN_BACK, BACK ,SPECIAL};
         inputRefs[animation::j623b] = {A, FRONT, DOWN, DOWN_FRONT ,SPECIAL}; inputRefs[animation::j412b] = {A, BACK, DOWN_BACK, DOWN ,SPECIAL};
-        inputRefs[animation::j632b] = {A, FRONT, DOWN_FRONT, DOWN ,SPECIAL}; inputRefs[animation::j421b] = {A, BACK, DOWN, DOWN_BACK ,SPECIAL};
+        //inputRefs[animation::j632b] = {A, FRONT, DOWN_FRONT, DOWN ,SPECIAL}; inputRefs[animation::j421b] = {A, BACK, DOWN, DOWN_BACK ,SPECIAL};
         inputRefs[animation::j41236b] = {A, BACK, DOWN_BACK, DOWN, DOWN_FRONT, FRONT ,SPECIAL};
         inputRefs[animation::j63214b] = {A, FRONT, DOWN_FRONT, DOWN, DOWN_BACK, BACK ,SPECIAL};
 
@@ -357,8 +352,43 @@ namespace data {
     //the types of modification that an upgrade can perform on a stat
     enum modifyType{ADD, SUBTRACT, MULTIPLY, DIVIDE, SET};
 
+
+
+    struct Modification {
+        std::string mod;
+        std::string datType;
+        statID stat;
+        modifyType modify;
+    };
+
+    class Upgrade {
+    public:
+        enum class Type {
+            Stat,
+            Move,
+            Mechanic,
+            Archetype
+        };
+
+        Type type;
+        std::string id;
+
+        // Data describing what it modifies
+        std::vector<Modification> upgradeData;
+
+        // Function that applies the upgrade to a fighter
+        void apply(actors::Fighter& f);
+    };
+
+    struct UpgradeSet {
+        std::vector<Upgrade> upgrades;
+        std::vector<int> applyNum;
+        int pointsUsed;
+        std::array<int,4> archetypePoints;
+    };
+
     //modifies stats in a fighterBuilder
-    class Upgrade{
+    /*class Upgrade{
     public:
         std::string name;
         data::statID stat;
@@ -389,100 +419,8 @@ namespace data {
         }
 
 
-    };
+    };*/
 
-    struct UpgradeSet {
-        std::vector<Upgrade> upgrades;
-        std::vector<int> applyNum;
-        int pointsUsed;
-        std::array<int,4> archetypePoints;
-    };
-    struct Upgrades {
-        //Basic upgrade modifiers
-        Upgrade statsHP{"HP",maxHP,ADD,50,3};
-        Upgrade statsHPNt{"HPn't",maxHP,ADD,50,3};
-
-        Upgrade statsSpeed{"Speed",speed,ADD,0.5,3};
-        Upgrade statsAirSpeed{"AirSpeed",airSpeed,ADD,0.5,3};
-        Upgrade statsSpeedNt{"Speedn't",speed,SUBTRACT,0.5,-3};
-        Upgrade statsAirSpeedNt{"AirSpeedn't",airSpeed,SUBTRACT,0.5,-3};
-
-        Upgrade statsGrabMult{"Grab Pow",grabMult,ADD,0.01,3};
-        Upgrade statsGrabRes{"Grab Res",grabRes,ADD,0.01,3};
-        Upgrade statsGrabMultNt{"Grab Pown't",grabMult,SUBTRACT,0.01,-3};
-        Upgrade statsGrabResNt{"Grab Resn't",grabRes,SUBTRACT,0.01,-3};
-
-        Upgrade statsProjectileMult{"Projectile Pow",projectileMult,ADD,0.01,3};
-        Upgrade statsProjectileRes{"Projectile Res",projectileRes,ADD,0.01,3};
-        Upgrade statsProjectileMultNt{"Projectile Pown't",projectileMult,SUBTRACT,0.01,-3};
-        Upgrade statsProjectileResNt{"Projectile Resn't",projectileRes,SUBTRACT,0.01,-3};
-
-        Upgrade statsMeleeMult{"Melee Pow",meleeMult,ADD,0.01,3};
-        Upgrade statsMeleeRes{"Melee Res",meleeRes,ADD,0.01,3};
-        Upgrade statsMeleeMultNt{"Melee Pown't",meleeMult,SUBTRACT,0.01,3};
-        Upgrade statsMeleeResNt{"Melee Resn't",meleeRes,SUBTRACT,0.01,3};
-
-        Upgrade statsWeaponMult{"Weapon Pow", weaponMult, ADD, 0.01, 3};
-        Upgrade statsWeaponRes{"Weapon Res", weaponRes, ADD, 0.01, 3};
-        Upgrade statsWeaponMultNt{"Weapon Pow", weaponMult, SUBTRACT, 0.01, 3};
-        Upgrade statsWeaponResNt{"Weapon Res", weaponRes, SUBTRACT, 0.01, 3};
-
-        //Upgrade sets
-        UpgradeSet rushDown{{//fast, light, and close-range
-            statsSpeed, statsAirSpeed,
-            statsMeleeMult,
-            statsHPNt,
-            },{
-                1,1,
-                10,
-                1
-            },0, {20,0,0,0}};
-
-        UpgradeSet zoner{{//slow, defensive, and long-range
-            statsSpeedNt, statsAirSpeedNt,
-            statsProjectileMult,
-            statsHPNt
-            },{
-                1,1,
-                10,
-                2
-            },0,{0,20,0,0}};
-
-        UpgradeSet grappler{{//slow, meaty, and close-range
-            statsSpeedNt,statsAirSpeedNt,
-            statsGrabMult,
-            statsHP
-            },{
-                2,2,
-                10,
-                4
-            },0,{0,0,20,0}};
-
-        UpgradeSet shoto{//normal speed, frail, and mid-range
-            {
-                statsMeleeMult,statsProjectileMult,
-                statsGrabMult, statsWeaponMult,
-                statsHPNt
-            },{
-                2,2,
-                2,2,
-                1,
-
-            }, 0, {0,0,0,0}};
-
-        UpgradeSet hpSpec{{statsHP},{1}, 3};
-
-        UpgradeSet speedSpec{{statsSpeed, statsAirSpeed},{3,1},3};
-
-        UpgradeSet GrabSpec{{statsGrabMult},{5},3};
-
-        UpgradeSet MeleeSpec{{statsGrabMult},{5},3};
-
-        UpgradeSet ProjectileSpec{{statsGrabMult},{5},3};
-
-        UpgradeSet WeaponSpec{{statsGrabMult},{5},3};
-
-    };
 
     //DTO for Fighters
     class FighterBuilder {
@@ -511,6 +449,10 @@ namespace data {
             }
         }
 
+        FighterBuilder(std::string fileName) {
+
+        }
+
         FighterBuilder() {
             for (int i = 0; i < 36; i++) {
                 baseStats[i] = defaultStats[i];
@@ -522,17 +464,14 @@ namespace data {
 
         void setBaseMoves() {
             baseMoves = {
-                "idle","walk1","walk2","crouch","uncrouch","crouched",
-                "jump0","jump1","jump2","land",
-                "dash1","dash2","dash3","dash4",
-                "air0","air1","air2",
-                "hit00","hit01","hit02",
-                "hit10","hit11","hit12",
-                "hit20","hit21","hit22",
-                "jhit0","jhit1","jhit2",
-
-            };
+                "jump0","jump1","jump2","air0","air1","air2","land",
+                "dash2", "dash1", "dash3", "dash4","walk1","walk2",
+                "crouch", "crouched","uncrouch","idle",
+            "hit00","hit01","hit02","hit10","hit11","hit12","hit20","hit21","hit22",
+                "hitA0","knocked","getupG1","getupG2",
+                "lightLand","heavyLand","knockDown"};
         }
+
         void setBuildStats() {
             buildStats[maxHP] = 1000;
             buildStats[speed] = 3;

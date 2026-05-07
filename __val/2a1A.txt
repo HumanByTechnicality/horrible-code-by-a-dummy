@@ -1,9 +1,9 @@
-id:02601
-file:2a1B.png
+id:02600
+file:2a1A.png
 
 //main-line animation
 framenum:6
-frameorder:2x0 3x1 2x2 4x3 4x4 1x5
+frameorder:2x0 5x1 2x2 8x3 6x4
 
 input:2a
 
@@ -35,15 +35,15 @@ offset:0x0
 //hitbox data
 HITBOX_START:
 boxid:0
-pos:18x24,15x12
-damage:20
+pos:12x0,27x7
+damage:7
 type:0,0,0,0,0,-1
 stun:14,8
-knockback:4x0,4x2,5
+knockback:2x0,4x2,5
 SAVE:------
 HITBOX_END:
 
-hitboxorder:5x-1 2x0 9x-1
+hitboxorder:7x-1 2x0 40x-1
 
 //hurtbox data
 HURTBOX_START:
@@ -65,7 +65,7 @@ type:hurt
 SAVE:------
 HURTBOX_END:
 
-hurtboxorder:5x0 2x1 4x2 4x3 1x0
+hurtboxorder:5x0 2x1 4x2 4x3 1x0 40x-1
 
 //buffer data
 BUFFER_START:

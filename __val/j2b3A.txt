@@ -1,0 +1,69 @@
+id:05220
+file:j2b1A.png
+
+//main-line animation
+framenum:14
+frameorder:3x6 3x7 4x8 12x9
+
+input:5a
+
+//movement data
+startaltitude:0
+endaltitude:0
+movement:24x-1,2.5
+gravity:24x1.5
+
+//other data
+iframes:-1x-1
+armorframes:-1x-1
+meterUsed:0
+active:1
+
+//ending animations
+endframeorder:0x-1
+endcondition:NULL
+
+//transition to other animations
+transanim:NULL
+transcondition:NULL
+
+//frame conditions
+framesize:80x70
+frameanchor:23x10
+offset:0x0
+
+//hitbox data
+HITBOX_START:
+boxid:0
+pos:21x22,19x10,34x17,14x9
+damage:20
+type:2,1,0,0,0,-1
+stun:14,8
+knockback:2x0,4x2,5
+trigger:3,05320
+SAVE:------
+HITBOX_END:
+
+hitboxorder:-1x-1
+
+//hurtbox data
+HURTBOX_START:
+boxid:0
+pos:-13x18,25x19,-11x31,28x14,5x43,13x14
+type:hurt
+SAVE:------
+boxid:1
+pos:-13x18,27x19,-8x29,47x11,10x40,13x14
+type:hurt
+SAVE:------
+HURTBOX_END:
+
+hurtboxorder:50x-1
+
+//buffer data
+BUFFER_START:
+BUFFER_END:
+
+//projectile data
+PROJECTILE_START:
+PROJECTILE_END:

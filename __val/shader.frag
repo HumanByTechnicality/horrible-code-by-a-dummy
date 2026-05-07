@@ -4,6 +4,7 @@ uniform vec4 replaceColors1[3];  // player 1's color
 uniform vec4 replaceColors2[3];  // player 2's color
 uniform float tolerance;   // Tolerance for matching
 uniform bool fighter;
+uniform bool meter;
 uniform float hit;
 
 void main() {
@@ -18,10 +19,20 @@ void main() {
                     break;
                 }
                 pixel.rgb = replaceColors2[i].rgb;
+                if (meter){
+                    pixel.r = pixel.r * 0.7 + 0.3;
+                    pixel.g = pixel.g * 0.7;
+                    pixel.b = pixel.b * 0.7;
+                }
                 break;
             }
             if (distance(pixel.rgb, vec3(0,0,0))<tolerance) {
                 pixel.rgb = vec3(replaceColors2[0][0]/2, replaceColors2[0][1]/2, replaceColors2[0][2]/2);
+                if (meter){
+                    pixel.r = pixel.r * 0.7 + 0.3;
+                    pixel.g = pixel.g * 0.7;
+                    pixel.b = pixel.b * 0.7;
+                }
                 break;
             }
 
@@ -34,14 +45,26 @@ void main() {
                     break;
                 }
                 pixel.rgb = replaceColors1[i].rgb;
+                if (meter){
+                    pixel.r = pixel.r * 0.7 + 0.3;
+                    pixel.g = pixel.g * 0.7;
+                    pixel.b = pixel.b * 0.7;
+                }
                 break;
+
             }
             if (distance(pixel.rgb, vec3(0,0,0))<tolerance) {
                 pixel.rgb = vec3(replaceColors1[0][0]/2, replaceColors1[0][1]/2, replaceColors1[0][2]/2);
+                if (meter){
+                    pixel.r = pixel.r * 0.7 + 0.3;
+                    pixel.g = pixel.g * 0.7;
+                    pixel.b = pixel.b * 0.7;
+                }
                 break;
             }
         }
     }
+
 
     gl_FragColor = pixel * gl_Color;
 }

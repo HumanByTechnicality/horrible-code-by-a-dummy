@@ -78,6 +78,12 @@ _--|TTTTTTTTTTT|
  * INCARCERATED FOR: messing up the update order when two projectiles are attempting to collide with the opponent
  * APREHENDED BY: Me, found: actors::Projectile::getHitBoxes(), ACTORS.h, 4/8/2026
  * ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||
+* * ======================================================================================================
+ * ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||
+ * ../__val/5c1A.txt
+ * INCARCERATED FOR: somehow causing the debugger to reach into esoteric assembly language bugs whenever it was included in a moveset
+ * APREHENDED BY: Me, found: game::CombatState::CombatState()
+ * ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||  ||
  * ______________________________________________________________________________________________________
  * ______________________________________________________________________________________________________
 
@@ -112,6 +118,9 @@ struct Input {
 
 class Player : public Agent {
 private:
+    /*
+     * maps actions to inputs and allows those mappings to be modified later by the player
+     */
     const std::array<std::array<std::vector<Input>, INPUT_TYPE_COUNT>, ACTION_COUNT> defaultActionMaps = {
         //SELECT
         std::array<std::vector<Input>, INPUT_TYPE_COUNT>{
@@ -199,19 +208,25 @@ private:
             },
     };
     std::array<std::array<std::vector<Input>, INPUT_TYPE_COUNT>, ACTION_COUNT> actionMaps;
+
 protected:
 public:
-    const float maxInputTime = 0.5;
-    std::array<bool, sf::Keyboard::KeyCount> keysDown;
-    std::array<bool, sf::Keyboard::KeyCount> keysDownLast;
-    std::vector<Input> inputBuffer;
-    util::circularBuffer<sf::Time> inputTimes;
-    util::circularBuffer<sf::Time> inputDirTimes;
-    //NOTE: -1 means NO change in input direction; it is added to keep input directions in sync.
-    util::circularBuffer<int> inputDirections;
 
-    sf::Vector2f cursorPos;
-    sf::Vector2f selection;
+    const float maxInputTime = 0.5;
+
+    std::array<bool, sf::Keyboard::KeyCount> keysDown;//list containing all keys held down on the current frame
+    std::array<bool, sf::Keyboard::KeyCount> keysDownLast;//list containing all keys held down on the last frame
+
+    std::vector<Input> inputBuffer;//the buffer containing the li
+
+    util::circularBuffer<sf::Time> inputTimes;//the times when specific inputs were executed
+    util::circularBuffer<sf::Time> inputDirTimes;//the times when specific directions were held
+
+    //NOTE: -1 means NO change in input direction; it is added to keep input directions in sync.
+    util::circularBuffer<int> inputDirections;//the buffer holding all input directions to be interpreted by the game
+
+    sf::Vector2f cursorPos;//the position of the cursor
+    sf::Vector2f selection;//the current selected button (currently unused)
 
     Player() : inputTimes(20), inputDirTimes(20), inputDirections(20) {
         //initialize action maps to default values
@@ -232,6 +247,7 @@ public:
         inputBuffer.emplace_back(INPUT_TYPE_COUNT);
     }
 
+    //adds an input time to the queue of input times (used to do more, now kept to prevent extensive restructuring
     void addInput(sf::Clock &clock, int id, inputType type, bool press, util::direction facing) {
         int currDir = 5;
         //inputBuffer.emplace_back(type, id, press);
@@ -239,9 +255,12 @@ public:
         //std::cout<< "added an imput methinks"<<std::endl;
     }
 
+    //adds a direction to the directions buffer according to the current held keys
     void addDirection(sf::Clock &clock, util::direction facing) {
+        //default to neutral direction
         int currDir = 5;
 
+        //check for attacking buttons (overrides all other directions)
         if (keysDown[actionMaps[GRAB][KEY][0].action]) {
             currDir = (int)util::inputType::GRAB;
         }
@@ -252,37 +271,49 @@ public:
             currDir = (int)util::inputType::NORMAL;
             //std::cout<<"normal pressed";
         }
+
+        //directional checks
         else {
+            //check for Left input from keyboard
             if (keysDown[actionMaps[WALK_LEFT][KEY][0].action]) {
                 currDir -= (int)facing;
             }
+            //check for Down input from keyboard
             if (keysDown[actionMaps[CROUCH][KEY][0].action]) {
                 currDir -= 3;
             }
+            //check for Right input from keyboard
             if (keysDown[actionMaps[WALK_RIGHT][KEY][0].action]) {
                 currDir += (int)facing;
             }
+            //check for Up input from keyboard
             if (keysDown[actionMaps[JUMP][KEY][0].action]) {
                 currDir += 3;
             }
         }
 
+        //Strict neutral only when the input is completely neutral
         if (currDir == util::NEUTRAL) {
             currDir = (int)util::inputType::STRICT_NEUTRAL;
         }
+
+        //write to inputs buffers
         inputDirections.writeWithOverWrite(currDir);
         inputDirTimes.writeWithOverWrite(clock.getElapsedTime());
     }
 
+    //clears the queue of inputs to prevent repeated use of moves
     void clearQueue(actors::Fighter* f) {
         inputDirections.clear();
         f->clearClearCall();
     }
 
+    //unused function, I forgot what this does
     void updateCombatInputs(const sf::Clock & clock) {
         int size = inputBuffer.size();
     }
 
+    //prints the key states to the console
     void printKeys() {
         for (int i = 0; i < sf::Keyboard::KeyCount; i++) {
             std::string code = sf::Keyboard::getDescription(sf::Keyboard::delocalize(sf::Keyboard::Key(i)));
@@ -291,6 +322,7 @@ public:
         //std::cout<<std::endl;
     }
 
+    //prints the directions buffer to the console
     void printDirections() {
         std::vector<int> in = inputDirections.peekFull();
         for (int i = 0; i< in.size(); i++) {
@@ -312,6 +344,36 @@ public:
 
 
 namespace game {
+    struct GameTracker {
+        std::unordered_map<std::string, int> intTags; // a set of tags for tracking the gamestate, to be interpreted as int
+        std::unordered_map<std::string, int> decTags; // a set of tags for tracking the game state, to be interpreted as fixed-point decimals
+        std::unordered_map<std::string, bool> boolTags; // a set of tags for tracking the game state, to be interpreted as booleans
+        sf::Font font;
+
+        //load the fonts and various things
+        void load() {
+            std::cout<<"loading font: pixelfont.ttf"<<std::endl;
+            font.loadFromFile("../__dat/pixelfont.ttf");
+            std::cout<<"pixelfont.ttf: complete"<<std::endl;
+            std::cout<<"finished loading game";
+        }
+
+        //removes a key from the set of int tags
+        void removeInt(const std::string& key) {
+            intTags.erase(key);
+        }
+
+        //removes a key from the set of decimal tags
+        void removeDec(const std::string& key) {
+            decTags.erase(key);
+        }
+
+        //removes a key from the set of bool tags
+        void removeBool(const std::string& key) {
+            boolTags.erase(key);
+        }
+    };
+
     /*STATEFLAGS:signals sent by the game to determine what the next course of action is*/
     enum stateFlag {
         STATE_null = -1,
@@ -333,29 +395,56 @@ namespace game {
         SWAP_combat_online,
         SWAP_combat_training,
         SWAP_combat_end,
+        SWAP_menu_onlineSelection,
         SWAP_end,
     };
 
+    //originally intended to hol over state data when swapping states before the gameTracker was devised. useless now.
     struct stateData {
         stateFlag OriginType = SWAP_base;
         std::array<std::array<int,80>,6> ints;
         std::array<std::array<int,80>,6> doubles;
         std::array<std::array<std::string,20>,2> strings;
+        
     };
+
+    GameTracker track = GameTracker();//initializes the game tracker within static memory
+
+    /**loads and logs data such as stats, unlocks, and builds**/
+    class gameLogger {
+        void loadStats(){}
+
+        void saveStats(){}
+
+        void loadBuild(){}
+
+        void loadStory(){}
+
+        void logToNet(){}
+
+
+    };
+
     /**GAMESTATES: bastardous amalgamations of various logic which
- *can vary based upon the current game state**/
+ *can vary the program's behavior based upon the current game state**/
     class GameState {
     private:
         std::array<graphics::Layer, 10> layers;
         sf::Time timer;
-        std::array<Player,2> players;
+        std::array<Player*,2> players;
         bool isSinglePlayer = false;
+
+
     protected:
         int numFrames = 0;
+        std::vector<sf::Text> labels;
     public:
         GameState() = default;
 
-        virtual void enter(){}
+        virtual void enter(GameTracker *tracker) {
+            tracker->intTags["gameState"] = (int) SWAP_base;
+            tracker->intTags["swapState"] = (int) SWAP_base;
+        }
 
         virtual void handleEvents(const sf::Event &event, sf::Clock &clock, sf::Vector2i mousePos){}
 
@@ -374,29 +463,43 @@ namespace game {
 
         }
 
-        virtual stateData exit() {
-            return stateData{SWAP_base};
+        virtual void exit(GameTracker *tracker) {
+            tracker->intTags["lastState"] = (int) SWAP_base;
+            return;
         }
 
         virtual ~GameState() = default;
     };
 
+    struct ButtonWrapper {
 
+    };
+
+    struct IndicatorWrapper {
+
+    };
+
+    /**Any Gamestate which involves a menu of some kind**/
     class MenuState : public GameState {
     private:
 
     protected:
 
         bool usingMouse = true;
+
         std::vector<ui::Indicator> indicators = {};
+        std::vector<ui::TextIndicator> textIndicators = {};
         std::vector<ui::Button> buttons = {};
+
         int indexHovered = -1;
         int indexSelected = -1;
         float alpha = 0.0;
         std::vector<sf::Texture> textures;
-        std::array<int,64> tags;
         sf::Sprite back = sf::Sprite();
         std::vector<sf::Sprite> others;
+        std::vector<int> buttonTextureIDs;
+        int backdropTextureID = 0;
+        int selectedButton = -1;
 
     void checkHover(int x,int y) {
         if (usingMouse) {
@@ -414,6 +517,7 @@ namespace game {
         if (indexHovered != -1) {
             buttons[indexHovered].press(x,y);
             indexSelected = indexHovered;
+            selectedButton = indexSelected;
         }
     }
 
@@ -425,11 +529,151 @@ namespace game {
     }
 
     public:
+        MenuState(std::string file) : GameState() {
+            std::ifstream vals("../__dat/" + file + ".txt");
+
+            if (!vals.is_open()) {
+                std::cerr << "Error opening file " << std::endl;
+            } else {
+                int parseType = 0;
+
+                std::string butRead = "H";
+                std::string butWrite = "H";
+
+                int pressFunc = 0;
+                int numStates = 0;
+                int releaseFunc = 0;
+
+                std::string texFile;
+                int textID = 0;
+
+                std::vector<int> stateMap = {};
+
+                sf::IntRect rect;
+                sf::IntRect coll;
+
+                int imgBehavior = 0;
+
+                std::vector<std::string> lines;
+                std::string line;
+
+                while (std::getline(vals, line)) {
+                    //separate flag from data on each line
+                    std::vector<std::string> flag = util::split(line, ':');
+
+                    //set flag[0] to lowercase
+                    std::transform(flag[0].begin(), flag[0] .end(), flag[0].begin(),
+                        [](unsigned char c){ return std::tolower(c); });
+
+                    if (parseType == 0) {
+                        if (flag[0] == "buttons") {
+                            parseType = 1;
+                        }
+                        else if (flag[0] == "gamestate") {
+                        }
+                        else if (flag[0] == "backdrop") {
+                            textures.push_back(sf::Texture());
+                            textures[textures.size() - 1].loadFromFile(flag[1]);
+                            back.setScale(graphics::scale, graphics::scale);
+                            back.setPosition(0,0);
+                        }
+
+                    }
+                    else if (parseType == 1) {
+                        if (flag[0] == "read") {
+                            butRead = flag[1];
+                        }
+                        else if (flag[0] == "write") {
+                            butWrite = flag[1];
+                        }
+                        else if (flag[0] == "pressfunc") {
+                            auto dat = util::split(flag[1],' ');
+                            pressFunc = std::stoi(dat[0]);
+                            numStates = std::stoi(dat[1]);
+                        }
+                        else if (flag[0] == "releasefunc") {
+                            releaseFunc = std::stoi(flag[1]);
+                        }
+                        else if (flag[0] == "icon") {
+                            auto dat = util::split(flag[1],' ');
+                            texFile = dat[0];
+                            rect = sf::IntRect(std::stoi(dat[1]),std::stoi(dat[2]),std::stoi(dat[3]),std::stoi(dat[4]));
+                        }
+                        else if (flag[0] == "collider") {
+                            auto dat = util::split(flag[1],' ');
+                            coll = sf::IntRect(std::stoi(dat[0]),std::stoi(dat[1]),std::stoi(dat[2]),std::stoi(dat[3]));
+                        }
+                        else if (flag[0] == "imgbehavior") {
+                            imgBehavior = std::stoi(flag[1]);
+                        }
+                        else if (flag[0] == "statemap") {
+                            auto dat = util::split(flag[1],' ');
+                            for (auto datum: dat) {
+                                stateMap.push_back(std::stoi(datum));
+                            }
+                        }
+                        else if (flag[0] == "save") {
+                            textures.push_back(sf::Texture());
+                            textures[textures.size() - 1].loadFromFile(texFile);
+                            buttonTextureIDs.push_back(textures.size() - 1);
+
+                            bool skipR = false;
+                            bool skipW = false;
+
+                            if (butRead != "H") track.intTags.try_emplace(butRead, 0);
+                            else skipR = true;
+                            if (butWrite != "H") track.intTags.try_emplace(butWrite, 0);
+                            else skipW = true;
+
+                            auto wit = track.intTags.find(butWrite);
+                            auto rit = track.intTags.find(butRead);
+                            int * write = nullptr;
+                            int * read = nullptr;
+
+                            if (wit != track.intTags.end() && !skipW) {
+                                write = &(wit->second);
+                            }
+                            if (rit != track.intTags.end() && !skipR) {
+                                read = &(wit->second);
+                            }
+
+                            buttons.emplace_back(coll,rect,numStates,stateMap,imgBehavior,write, read);
+                            buttons[buttons.size()-1].setBehavior(static_cast<ui::pressFunction>(pressFunc), static_cast<ui::releaseFunction>(releaseFunc));
+                            others.push_back(sf::Sprite());
+                        }
+                        else if (flag[0] == "end") {
+                            parseType = 0;
+                        }
+
+                    }
+
+
+                }
+
+                for (int i = 0; i< buttons.size(); i++) {
+                    others[i].setTexture(textures[buttonTextureIDs[i]]);
+                    others[i].setPosition(buttons[i].getRealImgX(), buttons[i].getRealImgY());
+                    others[i].setScale(graphics::scale, graphics::scale);
+                }
+                back.setTexture(textures[backdropTextureID]);
+                textIndicators.push_back(ui::TextIndicator({
+                    "          Training",
+                    "                                             VS",
+                    "                                                     Tournament",
+                    "                                                                                  Fighter",
+                    "                                                                                         Settings"
+                }, {static_cast<float>(20 * graphics::scale),static_cast<float>(145* graphics::scale),70,140},&track.font,5,{0,1,2,3,4,5},&indexHovered,14 * graphics::scale));
+
+            }
+        }
         MenuState() : GameState() {
 
         }
 
-        void enter() override{}
+        void enter(GameTracker *tracker) override {
+            tracker->intTags["gameState"] = (int) SWAP_menu_base;
+            tracker->intTags["swapState"] = (int) SWAP_base;
+        }
 
         void handleEvents(const sf::Event &event, sf::Clock &clock, sf::Vector2i mousePos) override {
             bool found = false;
@@ -467,8 +711,16 @@ namespace game {
                 others[i].setTextureRect(buttons[i].getTextureRect());
                 buttons[i].update();
             }
-            std::cout<<tags[0]<<","<<tags[1]<<","<<tags[2]<<","<<tags[3]<<","<<tags[4]<<std::endl;
+            for (auto& ti : textIndicators) {
+                //TODO: implement textIndicator updates
+                ti.updateDrawable();
+            }
 
+            if (alpha >0) alpha -= 0.045;
+            else alpha = 0;
+            if (track.intTags["swapState"] != (int) SWAP_base) {
+                std::cout<<"You should probably swap to the next state right about now."<<std::endl;
+            }
             if (alpha >0) alpha -= 0.045;
             else alpha = 0;
         }
@@ -476,22 +728,26 @@ namespace game {
         void draw(sf::RenderWindow& window, sf::Shader* shader) override {
             window.draw(back);
             shader->setUniform("alpha",alpha);
-            for (int i = 0; i<5; i++) {
-                if (tags[i] != 0) shader->setUniform("execute", true);
+            for (int i = 0; i<others.size(); i++) {
+                if (i == indexSelected) shader->setUniform("execute", true);
                 else shader->setUniform("execute", false);
 
                 window.draw(others[i],shader);
             }
+
+            for (auto& ti : textIndicators) {
+                window.draw(ti.getDrawable());
+            }
         }
 
-        stateData exit() override {
-            return stateData{SWAP_menu_base};
+        void exit(GameTracker *tracker) override {
+            return;
         }
 
         ~MenuState() override {}
     };
 
-    class MainMenu : public MenuState {
+    /*class MainMenu : public MenuState {
     private:
     protected:
     public:
@@ -556,7 +812,7 @@ namespace game {
             }
         }
 
-        void enter() override{}
+        void enter(GameTracker *tracker) override{}
 
         void handleEvents(const sf::Event &event, sf::Clock &clock, sf::Vector2i mousePos) override {
             bool found = false;
@@ -610,12 +866,12 @@ namespace game {
             }
         }
 
-        stateData exit() override {
-            return stateData{SWAP_menu_main};
+        void exit(GameTracker *tracker) override {
+            return;
         }
 
         ~MainMenu() override {}
-    };
+    };*/
 
     class Settings : public MenuState {
     private:
@@ -623,7 +879,7 @@ namespace game {
     public:
         Settings() : MenuState(){}
 
-        void enter() override{}
+        void enter(GameTracker *tracker) override{}
 
         void handleEvents(const sf::Event &event, sf::Clock &clock, sf::Vector2i mousePos) override{}
 
@@ -631,8 +887,8 @@ namespace game {
 
         void draw(sf::RenderWindow& window) override {}
 
-        stateData exit() override {
-            return stateData{SWAP_menu_settings};
+        void exit(GameTracker *tracker) override {
+            return;
         }
 
         ~Settings() override {}
@@ -644,7 +900,7 @@ namespace game {
     public:
         FighterCreate() : MenuState(){}
 
-        void enter() override{}
+        void enter(GameTracker *tracker) override{}
 
         void handleEvents(const sf::Event &event, sf::Clock &clock, sf::Vector2i mousePos) override{}
 
@@ -652,8 +908,8 @@ namespace game {
 
         void draw(sf::RenderWindow& window) override {}
 
-        stateData exit() override {
-            return stateData{SWAP_menu_editor};
+        void exit(GameTracker *tracker) override {
+            return;
         }
 
         ~FighterCreate() override {}
@@ -666,7 +922,7 @@ namespace game {
     public:
         Shop() : MenuState(){}
 
-        void enter() override{}
+        void enter(GameTracker *tracker) override{}
 
         void handleEvents(const sf::Event &event, sf::Clock &clock, sf::Vector2i mousePos) override{}
 
@@ -674,8 +930,8 @@ namespace game {
 
         void draw(sf::RenderWindow& window) override {}
 
-        stateData exit() override {
-            return stateData{SWAP_menu_shop};
+        void exit(GameTracker *tracker) override {
+            return;
         }
 
         ~Shop() override {}
@@ -688,7 +944,7 @@ namespace game {
     public:
         TrainingShop() : MenuState(){}
 
-        void enter() override{}
+        void enter(GameTracker *tracker) override{}
 
         void handleEvents(const sf::Event &event, sf::Clock &clock, sf::Vector2i mousePos) override{}
 
@@ -696,8 +952,8 @@ namespace game {
 
         void draw(sf::RenderWindow& window) override {}
 
-        stateData exit() override {
-            return stateData{SWAP_menu_training_shop};
+        void exit(GameTracker *tracker) override {
+            return;
         }
 
         ~TrainingShop() override {}
@@ -713,15 +969,19 @@ namespace game {
 
     class CombatState : public GameState {
     private:
-        int freeze = 0;
-        bool paused = false;
-        int avg = 0;
-        double camY = 0;
-        int hits[2] = {0,0};
-        double healthbarWidth =  83;
-        double healthbarHeight = 8;
+        int freeze = 0;//counter for impact and hitstop
+        int timeTracker = 0;//generic time counter
+        bool paused = false;//whether the game is paused
+        int camX = 0;//x position of the camera
+        double camY = 0;//y position of the camera
+        int hits[2] = {0,0};//the ids of the boxes that fighters were hit by
+        double healthbarWidth = 83;//width of the health bar on the UI
+        double healthbarHeight = 8;//height of the health bar on the UI
+        int timeLeftInRound = 60;//seconds left in the round (or multiples of 60 frames)
+        sf::Time startTime;//time when the round started
 
-        std::array<int,390> tilesets = {
+        std::array<int,390> tilesets = {//initializes a tileset
+            //TODO: load tilesets from a file instead of a hardcoded initialization
 25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,
 25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,
 25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,
@@ -734,10 +994,11 @@ namespace game {
 4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
         };
 
-        sf::Sprite UI = sf::Sprite();
-        sf::Sprite UIoverlay = sf::Sprite();
+        sf::Sprite UI = sf::Sprite();//UI sprite
+        sf::Sprite UIoverlay = sf::Sprite();//overlay over the UI
+        sf::Sprite text = sf::Sprite();//text in general
 
-        graphics::Camera cam;
+        graphics::Camera cam;//the camera object
 
         sf::Sprite playerIcons[2] = {sf::Sprite(), sf::Sprite()};
 
@@ -749,24 +1010,26 @@ namespace game {
         std::array<sf::Sprite,2> sprite;
         std::array<sf::Sprite,16> sprite2;
         std::array<actors::Fighter*, 2> fighters;
-        Player player = Player();
+        Player *  player = new Player();
         std::array<std::array<std::vector<sf::Rect<double>>,2>,2> boxes;
 
         sf::Texture UItex = sf::Texture();
         sf::Texture icoTex = sf::Texture();
+        sf::Texture textTex = sf::Texture();
 
         //animation::ParticleHandler ph = animation::ParticleHandler();
     protected:
+        bool roundActive = false;
     public:
         CombatState() : GameState() {
             fighters[0] = new actors::Fighter({
                 "jump0","jump1","jump2","air0","air1","air2","land",
                 "dash2", "dash1", "dash3", "dash4","walk1","walk2",
-                "6b1A","6b2A","5b1A","3a1A","2a1A",
-                "crouch", "crouched","uncrouch",
+                "6b1A","6b2A","5b1A","3a1A","2a1A","236a1A","236a2A","1a1A","5c1A",
+                "crouch", "crouched","uncrouch", "214a1A","2b1A","j2a1A",//grabs will cause the game to kill itself. will fix later.
                 "4a1A","5a1A","6a1A","idle", "4b1A","j5a1A", "j4a1A", "j6a1A",
             "hit00","hit01","hit02","hit10","hit11","hit12","hit20","hit21","hit22",
-                "hitA0","knocked","getupG1",
+                "hitA0","knocked","getupG1","getupG2",
                 "j2b1A","j2b2A","j2b3A","lightLand","heavyLand","knockDown"});
             fighters[1] = new actors::Fighter({
                 "jump0","jump1","jump2","air0","air1","air2","land",
@@ -786,6 +1049,7 @@ namespace game {
 
             UItex.loadFromFile("../__pic/UI.png");
             icoTex.loadFromFile("../__pic/ico1.png");
+            textTex.loadFromFile("../__pic/startText.png");
 
             UI.setTexture(UItex);
             UI.setTextureRect({0,0,300,41});
@@ -816,7 +1080,10 @@ namespace game {
 
 
             tileMap.load("../__pic/ogres.png",sf::Vector2u{32,32},&tilesets[0],39,10);
-
+            text.setPosition(84*graphics::scale, 60 * graphics::scale);
+            text.setScale(graphics::scale,graphics::scale);
+            text.setTexture(textTex);
+            text.setTextureRect({0,32,131,32});
 
             /*ph.addParticle(animation::particleType(
                 animation::Sb_static, {0,0,0,0},
@@ -825,20 +1092,24 @@ namespace game {
                 animation::Tb_blip, {4,0,0,0},
                 {0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3}
                 ));*/
+            labels.push_back(sf::Text(std::to_string(timeLeftInRound), track.font, 10 * graphics::scale));
+            labels[0].setPosition(150 * graphics::scale - labels[0].getGlobalBounds().width/2, 14 * graphics::scale);
 
         }
 
-        void enter() override{}
+        void enter(GameTracker *tracker) override {
+            tracker->intTags["gameState"] = (int) SWAP_combat_base;
+        }
 
         void handleEvents(const sf::Event &event, sf::Clock &clock, sf::Vector2i mousePos) override {
             if (event.type == sf::Event::KeyPressed) {
-                player.keysDown[event.key.code] = true;
+                player->keysDown[event.key.code] = true;
 
-                player.addInput(clock, event.key.code, KEY, true, fighters[0]->getFacing());
+                player->addInput(clock, event.key.code, KEY, true, fighters[0]->getFacing());
                 if (event.key.code == sf::Keyboard::T) {
                     std::vector<std::array<int,4>> bounds = {};
-                    auto hb = collision::HitBox(bounds,{0,10,2,0,2,2,4,14,6,0,0,0,0,-1});
-                    fighters[0]->hit(hb);
+                    auto hb = collision::HitBox(bounds,{0,50,2,0,0,-3,4,14,6,0,0,0,0,-1});
+                    fighters[0]->hit(&hb);
                 }
                 if (event.key.code == sf::Keyboard::Backspace) {
                     std::cout<<"now wait just one second:"<<std::endl;
@@ -847,26 +1118,38 @@ namespace game {
                 }
             }
             if (event.type == sf::Event::KeyReleased) {
-                player.keysDown[event.key.code] = false;
+                player->keysDown[event.key.code] = false;
 
-                player.addInput(clock, event.key.code, KEY, false, fighters[0]->getFacing());
+                player->addInput(clock, event.key.code, KEY, false, fighters[0]->getFacing());
                     //player.printKeys();
             }
         }
         void update(sf::Clock &clock) override {
-            player.updateCombatInputs(clock);
+            if (numFrames == 180) {
+                roundActive = true;
+                startTime= clock.getElapsedTime();
+                text.setTextureRect({0,0,0,0});
+            }
+            if (numFrames == 150) {
+                text.setTextureRect({0,0,131,32});
+            }
+            player->updateCombatInputs(clock);
+
+            combatLogic(clock);
 
 
+        }
 
+        void combatLogic(sf::Clock & clock) {
             if (paused) {
 
             }
             else {
                 if (fighters[0]->checkForClearCall()) {
-                    player.clearQueue(fighters[0]);
+                    player->clearQueue(fighters[0]);
                 }
 
-                player.printDirections();
+                player->printDirections();
                 if (fighters[0]->outwardState[0] >fighters[1]->outwardState[0]){
                     fighters[0]->turnTo(util::direction::LEFT);
                     fighters[1]->turnTo(util::direction::RIGHT);
@@ -876,23 +1159,48 @@ namespace game {
                     fighters[0]->turnTo(util::direction::RIGHT);
                     fighters[1]->turnTo(util::direction::LEFT);
                 }
-                player.addDirection(clock, fighters[0]->getFacing());
-                std::vector<int> inputs = player.inputDirections.peekFullBack();
+                if (roundActive) {
+                    if (timeTracker >=60) {
+                        timeLeftInRound --;
+                        timeTracker -= 60;
+                        labels[0].setString(std::to_string(timeLeftInRound));
+                        labels[0].setPosition(150 * graphics::scale - labels[0].getGlobalBounds().width/2, 14 * graphics::scale);
+                        if (timeLeftInRound == 0) {
+                            if (fighters[1]->getHealthProp()<fighters[0]->getHealthProp()) {
+                                std::cout<<"player1 wins!"<<std::endl;
+                                std::exit(8);
+                            }if (fighters[0]->getHealthProp()<fighters[1]->getHealthProp()) {
+                                std::cout<<"CPU wins!"<<std::endl;
+                                std::exit(9);
+                            }
+                            else {
+                                std::cout<<"it's an MF tie!"<<std::endl;
+                                std::exit(10);
+                            }
 
-                //std::cout<<"fighter 0"<<std::endl;
+                        }
+                    }
+                    player->addDirection(clock, fighters[0]->getFacing());
+                    std::vector<int> inputs = player->inputDirections.peekFullBack();
+
+                    //std::cout<<"fighter 0"<<std::endl;
+
+
+
+                    fighters[0]->takeInput(inputs,clock);
+
+                    timeTracker ++;
+                }
 
                 if (freeze > 0 ) {
                     freeze --;
                 }
                 else {
-                    fighters[0]->takeInput(inputs,clock);
 
                     fighters[0]->update();
                     //std::cout<<"fighter 1"<<std::endl;
                     fighters[1]->update();
                     //std::cout<<std::endl;
-                    healthBar[0].setSize(sf::Vector2f{float(healthbarWidth * fighters[0]->getHealthProp() * graphics::scale),healthBar[0].getSize().y});
-                    healthBar[1].setSize(sf::Vector2f{float(-healthbarWidth * fighters[1]->getHealthProp() * graphics::scale),healthBar[0].getSize().y});
 
                     for (auto f:fighters) {
                         if (f->outwardState[0]>2000) {
@@ -951,21 +1259,32 @@ namespace game {
 
                         hits[0] = 6;
                     }
+                    if (fighters[1]->getHealthProp()<=0 && fighters[1]->getHitStunAndDown() <= 0) {
+                        std::cout<<"player1 wins!"<<std::endl;
+                        std::exit(8);
+                    }if (fighters[0]->getHealthProp()<=0 && fighters[0]->getHitStunAndDown() <= 0) {
+                        std::cout<<"CPU wins!"<<std::endl;
+                        std::exit(9);
+                    }
+
 
                     //fighters[0]->updateProjectiles(numFrames);
                     boxes = {fighters[0]->getBoxes(), fighters[1]->getBoxes()};
                 }
 
 
-                //amera shenaniganry. GO!
-                avg = (fighters[0]->outwardState[0] + fighters[1]->outwardState[0])/2-graphics::internalRes.x/2;
+                //camera shenaniganry. GO!
+                camX = (fighters[0]->outwardState[0] + fighters[1]->outwardState[0])/2-graphics::internalRes.x/2;
                 camY = std::min(std::max(fighters[0]->outwardState[1],fighters[1]->outwardState[1]) * 0.6 + std::min(fighters[0]->outwardState[1],fighters[1]->outwardState[1])* 0.4, std::min(fighters[0]->outwardState[1],fighters[1]->outwardState[1])+30.0) - 24.f;
+                cam.update(camX, camY);
 
-                cam.update(avg, camY);
+                //health bars
+                healthBar[0].setSize(sf::Vector2f{float(healthbarWidth * fighters[0]->getHealthProp() * graphics::scale),healthBar[0].getSize().y});
+                healthBar[1].setSize(sf::Vector2f{float(-healthbarWidth * fighters[1]->getHealthProp() * graphics::scale),healthBar[0].getSize().y});
             }
 
             for (int i = 0; i< sf::Keyboard::KeyCount; i++) {
-                player.keysDownLast[i] = player.keysDown[i];
+                player->keysDownLast[i] = player->keysDown[i];
             }
 
 
@@ -993,6 +1312,7 @@ namespace game {
                     sprite[i].setTextureRect(fighters[i]->getTextureRect(-1,-1));
                     sprite[i].setPosition(pos.x*graphics::scale,graphics::windowSize.y-pos.y*graphics::scale);
                     shader->setUniform("fighter",i);
+                    shader->setUniform("meter", fighters[i]->getMeterFx());
                     shader->setUniform("hit",hits[i]/6.f);
                     window.draw(sprite[i], shader);
                 }
@@ -1007,6 +1327,7 @@ namespace game {
                     sprite[i].setTextureRect(fighters[i]->getTextureRect(-1,-1));
                     sprite[i].setPosition(pos.x*graphics::scale,graphics::windowSize.y-pos.y*graphics::scale);
                     shader->setUniform("fighter",i);
+                    shader->setUniform("meter", fighters[i]->getMeterFx());
                     shader->setUniform("hit",hits[i]/6.f);
                     window.draw(sprite[i], shader);
                 }
@@ -1061,23 +1382,30 @@ namespace game {
 
             }*/
             window.draw(UI);
+            shader->setUniform("meter", fighters[0]->getMeterFx());
             shader->setUniform("fighter",0);
             window.draw(playerIcons[0], shader);
+            shader->setUniform("meter", fighters[1]->getMeterFx());
             shader->setUniform("fighter",1);
             window.draw(playerIcons[1], shader);
             window.draw(healthBar[0]);
             window.draw(healthBar[1]);
             window.draw(UIoverlay);
+            window.draw(labels[0]);
+            window.draw(text);
         }
 
-        stateData exit() override {
-            return stateData{SWAP_combat_base};
+        void exit(GameTracker *tracker) override {
+            tracker->intTags["lastState"] = (int) SWAP_combat_base;
         }
 
         ~CombatState() override {
             delete fighters[0];
+            delete fighters[1];
+            delete player;
         }
     };
+
 
 
     class OfflineCombat : public CombatState {
@@ -1086,7 +1414,9 @@ namespace game {
     public:
         OfflineCombat() : CombatState(){}
 
-        void enter() override{}
+        void enter(GameTracker *tracker) override {
+            tracker->intTags["gameState"] = (int) SWAP_combat_offline;
+        }
 
         void handleEvents(const sf::Event &event, sf::Clock &clock, sf::Vector2i mousePos) override{}
 
@@ -1094,8 +1424,8 @@ namespace game {
 
         void draw(sf::RenderWindow& window) override {}
 
-        stateData exit() override {
-            return stateData{SWAP_combat_offline};
+        void exit(GameTracker *tracker) override {
+            tracker->intTags["lastState"] = (int) SWAP_combat_offline;
         }
 
         ~OfflineCombat() override {};
@@ -1108,7 +1438,7 @@ namespace game {
     public:
         TrainingCombat() : CombatState(){}
 
-        void enter() override{}
+        void enter(GameTracker *tracker) override{}
 
         void handleEvents(const sf::Event &event, sf::Clock &clock, sf::Vector2i mousePos) override{}
 
@@ -1116,8 +1446,8 @@ namespace game {
 
         void draw(sf::RenderWindow& window) override {}
 
-        stateData exit() override {
-            return stateData{SWAP_combat_training};
+        void exit(GameTracker *tracker) override {
+            return;
         }
 
         ~TrainingCombat() override {}
@@ -1130,7 +1460,7 @@ namespace game {
     public:
         OnlineCombat() : CombatState(){}
 
-        void enter() override{}
+        void enter(GameTracker *tracker) override{}
 
         void handleEvents(const sf::Event &event, sf::Clock &clock, sf::Vector2i mousePos) override{}
 
@@ -1138,11 +1468,17 @@ namespace game {
 
         void draw(sf::RenderWindow& window) override {}
 
-        stateData exit() override {
-            return stateData{SWAP_combat_online};
+        void exit(GameTracker *tracker) override {
+            return;
         }
 
         ~OnlineCombat() override {};
+    };
+
+    class StoryFight : public CombatState {
+        private:
+        protected:
+        public:
     };
 
 }
@@ -1153,7 +1489,7 @@ namespace game {
 int main() {
 
     //intialize necessary variables
-    game::stateData tempData;
+    //game::stateData tempData;
     sf::Shader shader;
     sf::Shader shader2;
     if (!shader.loadFromFile( "../__val/shader.frag", sf::Shader::Fragment)) {
@@ -1162,6 +1498,7 @@ int main() {
     if (!shader2.loadFromFile( "../__val/shader2.glsl", sf::Shader::Fragment)) {
         return 5;
     }
+    game::track.load();
 
 
 
@@ -1187,6 +1524,7 @@ int main() {
     shader.setUniformArray("replaceColors1", replacements1, 3);
     shader.setUniformArray("replaceColors2", replacements2, 3);
     shader.setUniform("tolerance", 0.1f);
+    shader.setUniform("meter", 1);
 
     sf::Glsl::Vec4 ignoreColor(0.f,0.f,0.f,1.f);
     shader2.setUniform("ignoreColor", ignoreColor);
@@ -1210,8 +1548,19 @@ int main() {
     sf::Event event;
     gameWindow.setFramerateLimit(0);
 
-    game::GameState* gs = new game::CombatState();
 
+    game::track.load();
+    game::GameState* gs = new game::CombatState();//game::MenuState("mainMenu");
+    gs->enter(&game::track);
+
+
+
+
+
+    // inside the main loop, between window.clear() and window.display()
+
+
+    int frameNum = 0;
     while (gameWindow.isOpen()) {
         sf::Vector2i mousePos = sf::Mouse::getPosition(gameWindow);
 
@@ -1234,6 +1583,9 @@ int main() {
         while (timeSinceUpdate > timePerFrame) {
             timeSinceUpdate -= timePerFrame;
             gs->update(clock2);
+            //std::cout<<"id:"<<frameNum<<" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"<<std::endl<<std::endl<<std::endl;
+            frameNum++;
+
             //fighters[2].update();
             //st.update()
         }
@@ -1244,6 +1596,7 @@ int main() {
             timeSinceDraw = frameRateLimit;
             gs->draw(gameWindow, &shader);
             gameWindow.display();
+
         }
 
 

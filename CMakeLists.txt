@@ -17,7 +17,8 @@ add_executable(newGame main.cpp
         include/UI.h
         include/COLLISION.h
         include/ANIMATION.h
-        )
+        include/NETWORK.h
+)
 
 add_executable(EditorF fighterEditor.cpp
         enumRefs.cpp

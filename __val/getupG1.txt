@@ -1,0 +1,56 @@
+id:12000
+file:getup.png
+
+//main-line animation
+framenum:23
+frameorder:4x17 4x18 4x19 4x20 4x21 4x22
+
+input:5
+
+//movement data
+startaltitude:0
+endaltitude:0
+movement:0x0,0
+
+//other data
+iframes:-1x-1
+armorframes:-1x-1
+meterUsed:0
+active:1
+
+//ending animations
+endframeorder:0x-1
+endcondition:NULL
+
+//transition to other animations
+transanim:NULL
+transcondition:NULL
+
+//frame conditions
+framesize:64x64
+frameanchor:23x10
+offset:0x0
+
+//hitbox data
+HITBOX_START:
+HITBOX_END:
+
+hitboxorder:-1x-1
+
+//hurtbox data
+HURTBOX_START:
+boxid:0
+pos:-13x18,25x19,-11x31,28x14,5x43,13x14
+type:hurt
+SAVE:------
+HURTBOX_END:
+
+hurtboxorder:30x0
+
+//buffer data
+BUFFER_START:
+BUFFER_END:
+
+//projectile data
+PROJECTILE_START:
+PROJECTILE_END:

@@ -21,6 +21,7 @@ armorframes:-1x-1
 meterUsed:0
 active:1
 weight:01
+stoponairhit:1
 
 //ending animations
 endframeorder:0x-1
@@ -35,6 +36,7 @@ framesize:54x65
 frameanchor:23x10
 offset:0x0
 
+
 //hitbox data
 HITBOX_START:
 boxid:0
@@ -42,7 +44,7 @@ pos:10x37,19x17
 damage:20
 type:2,0,0,0,0
 stun:14,8
-knockback:4x0,1x0,5
+knockback:4x0,0x1,5
 SAVE:------
 HITBOX_END:
 

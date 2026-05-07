@@ -1,0 +1,26 @@
+id:18300
+file:pr01.png
+
+//main-line animation:
+framenum:7
+frameorder:3x0 3x1 3x2 3x3 3x4 
+
+active:1
+
+//frame data:
+framesize:54x30
+frameanchor:27x20
+
+HITBOX_START:
+boxid:0
+pos:-15x15,30x20
+damage:20
+type:1,1,0,0,0,-1
+stun:14,8
+knockback:5x0,4x2,3
+SAVE:------
+HITBOX_END:
+
+hitboxorder:36x0
+
+hurtboxorder:-1x-1

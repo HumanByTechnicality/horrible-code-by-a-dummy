@@ -46,6 +46,14 @@ namespace ui {
         counter = 10
     };
 
+    enum class imgBehavior {
+        image_static = -1,
+        image_hovered,
+        image_with_state,
+        image_animate,
+    };
+
+
     //any ui element that can be selected TODO:plan Button class
     class Button {
     private:
@@ -62,8 +70,10 @@ namespace ui {
         int imgY;
         int imgW;
         int imgH;
+        int imgState;
 
         bool selected = false;//whether the slider is currently selected
+        bool writesInState = false;
 
         int numStates = 0;//total number of unique states
         int state = 0;//current state (0 to numStates-1)
@@ -74,12 +84,13 @@ namespace ui {
 
         pressFunction fP = pressFunction::NONE;
         releaseFunction fR = releaseFunction::NONE;
+        imgBehavior iB = imgBehavior::image_hovered;
         indicatorType type = indicatorType::on_off;
 
         std::vector<int> stateMap;
     protected:
     public:
-        Button(sf::IntRect size, sf::IntRect img, int states, std::vector<int> map, int* write =nullptr, int* read = nullptr) {
+        Button(sf::IntRect size, sf::IntRect img, int states, std::vector<int> map, int imgBehavior, int* write =nullptr, int* read = nullptr) {
             x = size.left;
             y = size.top;
             width = size.width;
@@ -102,7 +113,7 @@ namespace ui {
             else readVal = read;
 
             if (write == nullptr) writeVal = &this->tagVal;
-            else readVal = read;
+            else writeVal = write;
 
         }
         bool checkHover(int xC, int yC) {
@@ -175,6 +186,10 @@ namespace ui {
                 case pressFunction::drag:
                     drag(xC, yC);
                     break;
+                case pressFunction::set:
+                    state = 0;
+                    writeValue();
+                    break;
 
             }
             selected = true;
@@ -192,14 +207,28 @@ namespace ui {
 
             }
             if (lastState != state) {
+                /*
                 *writeVal = stateMap[state];
-                std::cout<<this<<" wrote the value "<<stateMap[state]<<" to the address "<<writeVal<<std::endl;
+                std::cout<<this<<" wrote the value "<<stateMap[state]<<" to the address "<<writeVal<<std::endl;*/
             }
+            imgState = getImageFrame();
             lastState = state;
         }
 
+        int getImageFrame() {
+            switch (iB) {
+                case (imgBehavior::image_hovered):
+                    return (int) hovered;
+                case (imgBehavior::image_with_state):
+                    return stateMap[state];
+                default:
+                    return 0;
+            }
+
+        };
+
         sf::IntRect getTextureRect() {
-            return {0, imgH*hovered,imgW, imgH};
+            return {0, imgH*imgState,imgW, imgH};
         }
 
         int getRealImgX() {
@@ -215,12 +244,21 @@ namespace ui {
 
         void setWrite(int* newWrite) {
             writeVal = newWrite;
+
         }
 
         void setBehavior(pressFunction pf, releaseFunction rf) {
             fP = pf;
             fR = rf;
         }
+
+        void writeValue() {
+            *(writeVal) = stateMap[state];
+            std::cout <<"wrote value "<< stateMap[state]<<" to tag at "<<writeVal<<": "<<*writeVal<<std::endl;
+
+
+        }
+
 
 
     };
@@ -251,6 +289,145 @@ namespace ui {
 
         }
     };
+
+    class TextField : public sf::Drawable , public sf::Transformable {
+        public:
+    };
+
+    enum class textAlignment {
+        LEFT = -1,
+        MIDDLE = 0,
+        RIGHT = 0,
+    };
+
+    class TextIndicator {
+    private:
+        std::vector<std::string> text;
+        int numStates = 0;
+        std::vector<int> stateMap;
+
+        sf::Color textColor = sf::Color::White;
+        sf::Color backgroundColor = sf::Color::Black;
+
+        sf::Font *font = nullptr;
+
+        sf::Vector2f textOffset = sf::Vector2f(0, 0);
+        sf::Vector2f position = sf::Vector2f(0, 0);
+        sf::Vector2f size = {0, 0};
+
+        int fontSize = 7;
+
+        bool wrapping = true;
+
+        int *read;
+
+        int state = 0;
+
+        sf::Text drawable;
+
+
+
+    public:
+        TextIndicator(std::vector<std::string> text,
+                      sf::FloatRect locale,
+                      sf::Font *font,
+                      int numStates,
+                      std::vector<int> stateMap,
+                      int *read,
+                      int fontSize) {
+            this->text = text;
+            this->numStates = numStates;
+            this->stateMap = stateMap;
+            this->read = read;
+            position = locale.getPosition();
+            size = locale.getSize();
+            this->fontSize = fontSize;
+            this->font = font;
+        }
+
+        void updateDrawable() {
+            if (!font) return;
+            if (read == nullptr) return;
+            state = * read;
+
+            // Update text from state/read
+            drawable.setFont(*font);
+            drawable.setString(getCurrentText());
+            drawable.setCharacterSize(fontSize);
+            drawable.setFillColor(textColor);
+
+            // Positioning logic (simple version)
+            drawable.setPosition(
+                position.x + textOffset.x,
+                position.y + textOffset.y
+            );
+        }
+
+        // -------------------------
+        // Getters
+        // -------------------------
+
+        const std::vector<std::string> &getText() const { return text; }
+        int getNumStates() const { return numStates; }
+        const std::vector<int> &getStateMap() const { return stateMap; }
+
+        sf::Color getTextColor() const { return textColor; }
+        sf::Color getBackgroundColor() const { return backgroundColor; }
+
+        sf::Font *getFont() const { return font; }
+
+        sf::Vector2f getTextOffset() const { return textOffset; }
+        sf::Vector2f getPosition() const { return position; }
+        sf::Vector2f getSize() const { return size; }
+
+        int getFontSize() const { return fontSize; }
+        bool getWrapping() const { return wrapping; }
+
+        int *getReadPtr() const { return read; }
+        int getState() const { return state; }
+
+        // -------------------------
+        // Setters
+        // -------------------------
+
+        void setText(const std::vector<std::string> &t) { text = t; }
+        void setNumStates(int n) { numStates = n; }
+        void setStateMap(const std::vector<int> &sm) { stateMap = sm; }
+
+        void setTextColor(const sf::Color &c) { textColor = c; }
+        void setBackgroundColor(const sf::Color &c) { backgroundColor = c; }
+
+        void setFont(sf::Font *f) { font = f; }
+
+        void setTextOffset(const sf::Vector2f &off) { textOffset = off; }
+        void setPosition(const sf::Vector2f &pos) { position = pos; }
+        void setSize(const sf::Vector2f &s) { size = s; }
+
+        void setFontSize(int fs) { fontSize = fs; }
+        void setWrapping(bool w) { wrapping = w; }
+
+        void setReadPtr(int *r) { read = r; }
+        void setState(int s) { state = s; }
+
+        std::string getCurrentText() const {
+            // Check if state is valid
+            if (state < 0 || state >= static_cast<int>(stateMap.size()))
+                return "";
+
+            int mappedIndex = stateMap[state];
+
+            // Check if mapped index is valid for text vector
+            if (mappedIndex < 0 || mappedIndex >= static_cast<int>(text.size()))
+                return "";
+
+            return text[mappedIndex];
+        }
+
+        const sf::Text& getDrawable() const {
+            return drawable;
+        }
+    };
+
 
 }
 

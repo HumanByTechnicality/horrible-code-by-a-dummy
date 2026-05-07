@@ -213,6 +213,28 @@ namespace util {
         return std::equal(subset.begin() + startIndex, subset.end(), set.end() - subset.size() + startIndex);
     }
 
+    std::string wrapText(std::string text, float maxWidth, const sf::Font& font, unsigned int fontSize) {
+        std::string wrappedText;
+        std::string word;
+        std::stringstream ss(text);
+        std::string currentLine;
+        sf::Text measuringText("", font, fontSize);
+
+        while (ss >> word) {
+            std::string potentialLine = currentLine + (currentLine.empty() ? "" : " ") + word;
+            measuringText.setString(potentialLine);
+
+            if (measuringText.getLocalBounds().width > maxWidth) {
+                wrappedText += (wrappedText.empty() ? "" : "\n") + currentLine;
+                currentLine = word;
+            } else {
+                currentLine = potentialLine;
+            }
+        }
+        wrappedText += (wrappedText.empty() ? "" : "\n") + currentLine;
+        return wrappedText;
+    }
+
 
 
     enum class direction {

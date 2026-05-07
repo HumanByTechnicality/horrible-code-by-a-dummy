@@ -36,7 +36,7 @@ offset:0x0
 HITBOX_START:
 boxid:0
 pos:22x22,34x9,42x28,24x10,31x33,29x7
-damage:20
+damage:25
 type:1,1,0,0,0,-1
 stun:20,8
 knockback:4x0,4x2,5

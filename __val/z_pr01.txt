@@ -1,0 +1,6 @@
+id:1
+bounce:0,0
+behavior:0 0 0 0 0
+velocity:5x0 5x0 5x0 5x0 5x0
+lifespan:70
+

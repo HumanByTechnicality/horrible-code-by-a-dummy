@@ -1,0 +1,16 @@
+id:18400
+file:pr02.png
+
+//main-line animation:
+framenum:7
+frameorder:4x2 4x3
+
+active:1
+
+//frame data:
+framesize:50x15
+frameanchor:25x7
+
+hitboxorder:-1x-1
+
+hurtboxorder:-1x-1
