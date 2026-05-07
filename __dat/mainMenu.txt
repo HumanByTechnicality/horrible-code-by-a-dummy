@@ -1,0 +1,57 @@
+gamestate:7
+backdrop:../__pic/titleBack.png
+
+BUTTONS:
+//TRAINING BUTTON
+read:H
+write:swapState
+pressfunc:6 2
+releasefunc:-1
+stateMap:13
+icon:../__pic/titleDummy.png -6 -6 40 40
+collider:65 108 31 31
+imgBehavior:0
+SAVE:
+
+//VERSUS BUTTON
+read:H
+write:swapState
+pressfunc:6 2
+releasefunc:-1
+stateMap:14
+icon:../__pic/titleArcade.png -6 -4 48 70
+collider:107 78 30 61
+imgBehavior:0
+SAVE:
+
+//STORY BUTTON
+read:H
+write:swapState
+pressfunc:6 2
+releasefunc:-1
+icon:../__pic/titlePoster.png -5 -5 39 49
+collider:149 73 29 39
+imgBehavior:0
+SAVE:
+
+//FIGHTER BUILDER BUTTON
+read:H
+write:swapState
+pressfunc:6 2
+releasefunc:-1
+icon:../__pic/titleTable.png -4 -9 92 46
+collider:179 106 83 33
+imgBehavior:0
+SAVE:
+
+//SETTINGS BUTTON
+read:H
+write:swapState
+pressfunc:6 2
+releasefunc:-1
+icon:../__pic/titleTools.png -6 -6 37 39
+collider:269 133 31 29
+imgBehavior:0
+SAVE:
+
+END:

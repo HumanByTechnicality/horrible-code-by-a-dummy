@@ -1,0 +1,15 @@
+gamestate:7
+backdrop:../__pic/titleBack.png
+
+BUTTONS:
+//TRAINING BUTTON
+read:H
+write:INT swapState
+pressfunc:6 2
+releasefunc:-1
+stateMap:13
+icon:../__pic/titleDummy.png -6 -6 40 40
+collider:65 108 31 31
+imgBehavior:0
+SAVE:
+END:

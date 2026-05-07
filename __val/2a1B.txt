@@ -1,0 +1,76 @@
+id:02601
+file:2a1B.png
+
+//main-line animation
+framenum:6
+frameorder:2x0 3x1 2x2 4x3 4x4 1x5
+
+input:2a
+
+//movement data
+startaltitude:0
+endaltitude:0
+movement:0x0,0
+
+//other data
+iframes:-1x-1
+armorframes:-1x-1
+meterUsed:0
+active:1
+weight:01
+
+//ending animations
+endframeorder:0x-1
+endcondition:NULL
+
+//transition to other animations
+transanim:NULL
+transcondition:NULL
+
+//frame conditions
+framesize:60x64
+frameanchor:15x10
+offset:0x0
+
+//hitbox data
+HITBOX_START:
+boxid:0
+pos:18x24,15x12
+damage:5
+type:0,0,0,0,0,-1
+stun:14,8
+knockback:2x0,4x2,5
+SAVE:------
+HITBOX_END:
+
+hitboxorder:5x-1 2x0 9x-1
+
+//hurtbox data
+HURTBOX_START:
+boxid:0
+pos:-11x14,25x15,-7x24,23x12,5x35,14x14
+type:hurt
+SAVE:------
+boxid:1
+pos:-11x14,25x15,-7x23,37x9,2x35,14x14
+type:hurt
+SAVE:------
+boxid:2
+pos:-11x14,25x15,-7x23,38x9,1x34,14x14
+type:hurt
+SAVE:------
+boxid:3
+pos:-11x14,25x15,-7x23,30x10,2x34,14x14
+type:hurt
+SAVE:------
+HURTBOX_END:
+
+hurtboxorder:5x0 2x1 4x2 4x3 1x0
+
+//buffer data
+BUFFER_START:
+BUFFER_END:
+
+//projectile data
+PROJECTILE_START:
+PROJECTILE_END:

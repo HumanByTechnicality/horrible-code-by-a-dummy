@@ -1,0 +1,5 @@
+id:2
+bounce:0,0
+behavior:0 0 0 0 0
+velocity:10x0 10x0 10x0 10x0 10x0
+lifespan:40

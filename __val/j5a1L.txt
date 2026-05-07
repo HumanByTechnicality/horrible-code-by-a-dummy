@@ -1,0 +1,64 @@
+id:03400 
+file:j5a1A.png
+
+//main-line animation
+framenum:4
+frameorder:5x0 2x1 4x2 6x3
+input:8
+
+//movement data 
+startaltitude:0
+endaltitude:1
+movement:0x0,0
+momentumcarry:1.0
+gravity:19x1
+
+//other data 
+iframes:-1x-1
+armorframes:-1x-1
+meterUsed:0
+active:1
+weight:01
+
+
+//ending animations 
+endframeorder:0x-1
+endcondition:NULL
+
+//transition to other animations 
+transanim:NULL 
+transcondition:NULL
+
+//frame conditions 
+framesize:54x65
+frameanchor:23x10
+offset:0x0
+
+//hitbox data 
+HITBOX_START: 
+pos:-13x45,26x45
+knockback:2x3,1x2,5
+stun:4,3
+type:1,3,2,0,0
+SAVE:------- 
+HITBOX_END:
+
+hitboxorder:-1x-1
+
+//hurtbox data 
+HURTBOX_START: 
+pos:-13x45,26x45
+type:hurt
+SAVE:------ 
+HURTBOX_END:
+
+hurtboxorder:30x0
+
+//buffer data 
+BUFFER_START: 
+BUFFER_END:
+
+//projectile data 
+PROJECTILE_START:
+PROJECTILE_END:
+

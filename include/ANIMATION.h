@@ -47,6 +47,10 @@ namespace animation {
 
         bool active = false;
 
+        int meterUsed = 0;
+        bool meterFX = false;
+
+        int cancelFrame = 500;
 
         animType animType;
 
@@ -80,6 +84,8 @@ namespace animation {
 
 
         int landAnim = 02100;
+
+
     public:
         std::vector<graphics::layerID> layers; //the layers covered by the animation
         int numLayers; //the number of layers the animation covers
@@ -99,6 +105,7 @@ namespace animation {
             exist = false;
             active = false;
             length = 0;
+            meterUsed = 0;
 
             int currentID = -1;
 
@@ -162,6 +169,18 @@ namespace animation {
 
                         if (flag[0] == "active") {
                             active = stoi(flag[1]);
+                        }
+
+                        if (flag[0] == "meterfx") {
+                            meterFX = stoi(flag[1]);
+                        }
+
+                        if (flag[0] == "cancelframe") {
+                            cancelFrame = stoi(flag[1]);
+                        }
+
+                        if (flag[0] == "meterused") {
+                            meterUsed = stoi(flag[1]);
                         }
                         if (flag[0] == "weight") {
                             weight = stoi(flag[1]);
@@ -593,6 +612,7 @@ namespace animation {
                     }
                 }
             }
+            vals.close();
         }
 
 
@@ -813,6 +833,16 @@ namespace animation {
         [[nodiscard]] int getWeight() const {
             return weight;
         }
+        [[nodiscard]] int getMeterFx() const {
+            return meterFX;
+        }
+        [[nodiscard]] int getMeterUsed() const {
+            return meterUsed;
+        }
+
+        [[nodiscard]] int getCancelFrame() const {
+            return cancelFrame;
+        }
 
         void reactivate() {
             for (auto& hb:hitBoxes) {
@@ -834,8 +864,8 @@ namespace animation {
         }
 
 
-        std::vector<int> getHbIdxOnFrame(int frame) {
-            return hitBoxOrder[frame];
+        int getHbIdxOnFrame(int frame) {
+            return hitBoxOrder[frame][0];
         }
 
         std::vector<collision::HitBox> getHitBoxes() {

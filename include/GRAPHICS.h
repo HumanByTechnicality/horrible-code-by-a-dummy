@@ -220,7 +220,7 @@ namespace graphics {
     };
 
 
-    const sf::Vector2i internalRes(300, 165); // the game's internal resolution
+    const sf::Vector2i internalRes(300, 180); // the game's internal resolution
     const double scale = 4;
 
     inline sf::Vector2i windowSize(internalRes.x * scale, internalRes.y * scale); // actual size of the game window

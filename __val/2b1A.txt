@@ -1,0 +1,63 @@
+id:04400
+file:2b1A.png
+
+//main-line animation
+framenum:8
+frameorder:2x0 6x1 4x2 8x3 8x4
+
+input:5b
+
+//movement data
+startaltitude:0
+endaltitude:0
+movement:0x0,0
+
+//other data
+iframes:-1x-1
+armorframes:-1x-1
+meterUsed:0
+active:1
+weight:04
+cancelframe:14
+
+
+//ending animations
+endframeorder:0x-1
+endcondition:NULL
+
+//transition to other animations
+transanim:NULL
+transcondition:NULL
+
+//frame conditions
+framesize:74x64
+frameanchor:15x10
+offset:0x0
+
+projectiles:z_pr02
+projectilepos:2,25,16
+spawnframes:11,0
+
+//hitbox data
+HITBOX_START:
+HITBOX_END:
+
+hitboxorder:-1x-1
+
+//hurtbox data
+HURTBOX_START:
+boxid:0
+pos:-13x18,25x19,-11x31,28x14,5x43,13x14
+type:hurt
+SAVE:------
+HURTBOX_END:
+
+hurtboxorder:-1x-1
+
+//buffer data
+BUFFER_START:
+BUFFER_END:
+
+//projectile data
+PROJECTILE_START:
+PROJECTILE_END:
