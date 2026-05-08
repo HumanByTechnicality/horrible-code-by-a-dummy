@@ -1155,7 +1155,38 @@ namespace actors {
         }
 
         Fighter(data::FighterBuilder &fb, int id = 0) : Actor(fb.moveFiles, id), currentRequest(3){
+            hitStun = 0;
+            blockStun = 0;
+            knockedDown = -1;
+            knockBackTime = 0;
+            knockBackX = 0;
+            knockBackY = 0;
+            momentumX = 0;
+            momentumY = 0;
+            meter = 0;
+            maxMeter = 80;
+            hp = maxHp;
+            std::sort(animations.begin(),animations.end(),
+                              [](const animation::Animation& a, const animation::Animation& b) {
+                                  return static_cast<int>(a.getInputID()*100-a.getOrdinality()) > static_cast<int>(b.getInputID()*100-b.getOrdinality());
+                              }
+            );
 
+            for (const auto& anim: animations) {
+                auto files = anim.getProjectileNames();
+                for (const auto& file: files) {
+                    bool broken = false;
+                    for (auto type: projectileTypes) {
+                        if (type.filename == file) {
+                            broken = true;
+                            break;
+                        }
+                    }
+                    if (!broken) {
+                        projectileTypes.push_back(ProjectileType(file,{file+"_active",file+"_explode"}));
+                    }
+                }
+            };
         }
 
         void takeInput(std::vector<int> &inputs, const sf::Clock &clock) {

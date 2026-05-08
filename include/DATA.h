@@ -612,9 +612,9 @@ namespace data {
             for (auto upgrade : upgrades) {
                 applyUpgrade(upgrade, uh);
             }
-            for (auto move: moveFiles) {
+            /*for (auto move: moveFiles) {
                 std::cout << move << std::endl;
-            }
+            }*/
         }
 
         FighterBuilder(std::string fileName) {

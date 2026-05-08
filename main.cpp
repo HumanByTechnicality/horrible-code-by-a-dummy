@@ -1020,8 +1020,10 @@ namespace game {
     protected:
         bool roundActive = false;
     public:
+        data::UpgradeHandler uH = data::UpgradeHandler();
+        data::FighterBuilder fb  = data::FighterBuilder({"5a1a","hpup","2a1b"},uH);
         CombatState() : GameState() {
-            fighters[0] = new actors::Fighter({
+            fighters[0] = new actors::Fighter(fb/*{
                 "jump0","jump1","jump2","air0","air1","air2","land",
                 "dash2", "dash1", "dash3", "dash4","walk1","walk2",
                 "6b1A","6b2A","5b1A","3a1A","2a1A","236a1A","236a2A","1a1A","5c1A",
@@ -1029,7 +1031,7 @@ namespace game {
                 "4a1A","5a1A","6a1A","idle", "4b1A","j5a1A", "j4a1A", "j6a1A",
             "hit00","hit01","hit02","hit10","hit11","hit12","hit20","hit21","hit22",
                 "hitA0","knocked","getupG1","getupG2",
-                "j2b1A","j2b2A","j2b3A","lightLand","heavyLand","knockDown"});
+                "j2b1A","j2b2A","j2b3A","lightLand","heavyLand","knockDown"}*/);
             fighters[1] = new actors::Fighter({
                 "jump0","jump1","jump2","air0","air1","air2","land",
                 "dash2", "dash1", "dash3", "dash4","walk1","walk2",
@@ -1549,11 +1551,10 @@ int main() {
 
 
     game::track.load();
-    game::GameState* gs = new game::MenuState("mainMenu");//game::MenuState("mainMenu");
+    game::GameState* gs = new game::CombatState();//game::MenuState("mainMenu");
     gs->enter(&game::track);
 
-    data::UpgradeHandler uH = data::UpgradeHandler();
-    data::FighterBuilder fb({"5a1a","hpup","2a1b"},uH);
+
 
 
 
@@ -1597,7 +1598,7 @@ int main() {
         if (timeSinceDraw > frameRateLimit) {
             gameWindow.clear(sf::Color(110,140,160,255));
             timeSinceDraw = frameRateLimit;
-            gs->draw(gameWindow, &shader2);
+            gs->draw(gameWindow, &shader);
             gameWindow.display();
 
         }
