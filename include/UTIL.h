@@ -236,7 +236,6 @@ namespace util {
     }
 
 
-
     enum class direction {
         LEFT = -1,
         NONE = 0,

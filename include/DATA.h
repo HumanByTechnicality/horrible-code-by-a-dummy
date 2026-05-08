@@ -346,35 +346,33 @@ namespace data {
         upThrow, rageBoost, grabArmor, impactSprint, controlProjectiles, longParry,
         downDash, burst, launcher, poisonGrab, icyWeapons, fieryMelee, stunProjectiles,
         cCanceling, doubleDash, dashAttack, groundedHitbox, invincibleDash, blockBreaker,
-        STAT_COUNT
+        STAT_COUNT, move, archetype
     };
 
     //the types of modification that an upgrade can perform on a stat
-    enum modifyType{ADD, SUBTRACT, MULTIPLY, DIVIDE, SET};
+    enum modifyType{ADD, SUBTRACT, MULTIPLY, DIVIDE, SET, REPLACE};
 
 
 
     struct Modification {
         std::string mod;
-        std::string datType;
         statID stat;
         modifyType modify;
     };
 
     class Upgrade {
     public:
-        enum class Type {
-            Stat,
-            Move,
-            Mechanic,
-            Archetype
-        };
-
-        Type type;
+        //a descriptive name for the upgrade, doubles as an identifier that it can be sorted and searched by
         std::string id;
 
         // Data describing what it modifies
-        std::vector<Modification> upgradeData;
+        Modification upgradeData;
+
+
+        Upgrade(std::string id, Modification data) {
+            this->id = id;
+            this->upgradeData = data;
+        }
 
         // Function that applies the upgrade to a fighter
         void apply(actors::Fighter& f);
@@ -387,6 +385,76 @@ namespace data {
         std::array<int,4> archetypePoints;
     };
 
+    //acts to load upgrades into memory only when they are needed
+    class UpgradeHandler {
+        public:
+        std::vector<Upgrade> upgrades;
+        std::vector<UpgradeSet> upgradeSets;
+        UpgradeHandler() {
+            std::ifstream ups("../__dat/upgrades.txt");
+            if (!ups.is_open()) {
+                std::cout<<"arr narr!"<<std::endl;
+            }else {
+                std::string line;
+
+                std::string name;
+
+                std::string modify;
+
+                while (std::getline(ups, line)) {
+                    //separate flag from data on each line
+                    std::vector<std::string> flag = util::split(line, ':');
+
+                    //set flag[0] to lowercase
+                    std::transform(flag[0].begin(), flag[0] .end(), flag[0].begin(),
+                        [](unsigned char c){ return std::tolower(c); });
+
+                    if (flag[0] == "name") {
+                        name = flag[1];
+                    }else if (flag[0] == "mod") {
+                        modify = flag[1];
+                    }else if (flag[0] == "save") {
+                        modifyType type = ADD;
+                        auto mods = util::split(modify,'|');
+
+                        if (mods[0] == "ADD") type = ADD;
+                        else if (mods[0] == "SUBTRACT") type = SUBTRACT;
+                        else if (mods[0] == "MULTIPLY") type = MULTIPLY;
+                        else if (mods[0] == "DIVIDE") type = DIVIDE;
+                        else if (mods[0] == "SET") type = SET;
+                        else if (mods[0] == "REPLACE") type = REPLACE;
+
+                        statID statId = STAT_COUNT;
+
+                        if (mods[1]=="maxHP") statId = maxHP;
+                        else if (mods[1]=="speed") statId = speed;
+                        else if (mods[1]=="airSpeed") statId = airSpeed;
+                        else if (mods[1]=="grabMult") statId = grabMult;
+                        else if (mods[1]=="meleeMult") statId = meleeMult;
+                        else if (mods[1]=="projectileMult") statId = projectileMult;
+                        else if (mods[1]=="weaponMult") statId = weaponMult;
+                        else if (mods[1]=="meterMult") statId = meterMult;
+                        else if (mods[1]=="grabRes") statId = grabRes;
+                        else if (mods[1]=="meleeRes") statId = meleeRes;
+                        else if (mods[1]=="projectileRes") statId = projectileRes;
+                        else if (mods[1]=="weaponRes") statId = weaponRes;
+
+                        Modification modification{mods[2], statId,type};
+
+                        upgrades.emplace_back(name,modification);
+                    }
+                }
+            }
+            std::sort(upgrades.begin(),upgrades.end(),[](const Upgrade& a, const Upgrade& b) {
+                                  return a.id < b.id;
+                              });
+
+            for (auto upgrade : upgrades) {
+                std::cout<<" "<<upgrade.id;
+            }
+            std::cout<<std::endl;
+        }
+    };
     //modifies stats in a fighterBuilder
     /*class Upgrade{
     public:

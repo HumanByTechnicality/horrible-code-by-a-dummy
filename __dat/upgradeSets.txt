@@ -1,0 +1,66 @@
+//STATS
+name:HpUp
+display:HP
+upgrades:5xHpUp
+archetype:0,0,5
+points:5
+desc:Increases your fighter's maximum HP
+SAVE:
+
+name:SpeedUp
+display:Speed
+upgrades:5xSpeedUp
+archetype:5,0,0
+points:5
+desc:Increases your fighter's speed on the ground
+SAVE:
+
+//MOVES
+name:5a1A
+display:Simple Jab
+upgrades:5a1A
+archetype:2,0,0
+points:2
+desc:LIGHT MID NORMAL\nA quick, simple, low-damage jab. great for starting combos.
+SAVE:
+
+name:2a1A
+display:Low Kick
+upgrades:2a1A
+archetype:2,0,0
+points:3
+desc:LIGHT LOW NORMAL\nA standard low kick.
+SAVE:
+
+name:2a1B
+display:Crouching Jab
+upgrades:2a1B
+archetype:2,0,0
+points:2
+desc:LIGHT MID NORMAL\nA quick crouching punch.
+SAVE:
+
+name:6a1A
+display:Forward Slash
+upgrades:6a1A
+archetype:2,0,0
+points:4
+desc:HEAVY MID NORMAL\nA disjointed slash.
+SAVE:
+
+name:4a1A
+display:Spinning Back Kick
+upgrades:4a1A
+archetype:0,0,0
+points:2
+desc:MEDIUM MID NORMAL\nA nice, meaty kick. Straight to the noggin.
+SAVE:
+
+//ARCHETYPES
+name:shoto
+display:You Are a Shoto
+upgrades:5xHpDown 5xgrabMultUp 5xWeapMultUp 5xMeleeMultUp 5xProjMultUp
+archetype:30,30,30
+points:0
+desc:A versatile archetype, with many different tools for all ranges.
+SAVE:

@@ -554,7 +554,6 @@ namespace game {
 
                 int imgBehavior = 0;
 
-                std::vector<std::string> lines;
                 std::string line;
 
                 while (std::getline(vals, line)) {
@@ -1550,8 +1549,10 @@ int main() {
 
 
     game::track.load();
-    game::GameState* gs = new game::CombatState();//game::MenuState("mainMenu");
+    game::GameState* gs = new game::MenuState("mainMenu");//game::MenuState("mainMenu");
     gs->enter(&game::track);
+
+    //data::upgradeHandler uH = data::upgradeHandler();
 
 
 
@@ -1594,7 +1595,7 @@ int main() {
         if (timeSinceDraw > frameRateLimit) {
             gameWindow.clear(sf::Color(110,140,160,255));
             timeSinceDraw = frameRateLimit;
-            gs->draw(gameWindow, &shader);
+            gs->draw(gameWindow, &shader2);
             gameWindow.display();
 
         }
