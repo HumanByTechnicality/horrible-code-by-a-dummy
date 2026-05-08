@@ -18,7 +18,7 @@ SAVE:
 //MOVES
 name:5a1A
 display:Simple Jab
-upgrades:5a1A
+upgrades:1x5a1A
 archetype:2,0,0
 points:2
 desc:LIGHT MID NORMAL\nA quick, simple, low-damage jab. great for starting combos.
@@ -26,7 +26,7 @@ SAVE:
 
 name:2a1A
 display:Low Kick
-upgrades:2a1A
+upgrades:1x2a1A
 archetype:2,0,0
 points:3
 desc:LIGHT LOW NORMAL\nA standard low kick.
@@ -34,7 +34,7 @@ SAVE:
 
 name:2a1B
 display:Crouching Jab
-upgrades:2a1B
+upgrades:1x2a1B
 archetype:2,0,0
 points:2
 desc:LIGHT MID NORMAL\nA quick crouching punch.
@@ -42,7 +42,7 @@ SAVE:
 
 name:6a1A
 display:Forward Slash
-upgrades:6a1A
+upgrades:1x6a1A
 archetype:2,0,0
 points:4
 desc:HEAVY MID NORMAL\nA disjointed slash.
@@ -50,7 +50,7 @@ SAVE:
 
 name:4a1A
 display:Spinning Back Kick
-upgrades:4a1A
+upgrades:1x4a1A
 archetype:0,0,0
 points:2
 desc:MEDIUM MID NORMAL\nA nice, meaty kick. Straight to the noggin.

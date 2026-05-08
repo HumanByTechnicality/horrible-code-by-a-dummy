@@ -376,13 +376,15 @@ namespace data {
 
         // Function that applies the upgrade to a fighter
         void apply(actors::Fighter& f);
+
     };
 
     struct UpgradeSet {
-        std::vector<Upgrade> upgrades;
-        std::vector<int> applyNum;
-        int pointsUsed;
-        std::array<int,4> archetypePoints;
+        std::string id;//the "name" of the upgradeSet
+        std::vector<int> upgrades;//indexes of the composite upgrades
+        std::vector<int> applyNum;//amount of times each upgrade is applied
+        int pointsUsed;//point cost
+        std::array<int,3> archetypePoints;//point toward an archetype
     };
 
     //acts to load upgrades into memory only when they are needed
@@ -393,7 +395,7 @@ namespace data {
         UpgradeHandler() {
             std::ifstream ups("../__dat/upgrades.txt");
             if (!ups.is_open()) {
-                std::cout<<"arr narr!"<<std::endl;
+                std::cout<<"problem loading ../__dat/upgrades.txt"<<std::endl;
             }else {
                 std::string line;
 
@@ -409,11 +411,10 @@ namespace data {
                     std::transform(flag[0].begin(), flag[0] .end(), flag[0].begin(),
                         [](unsigned char c){ return std::tolower(c); });
 
-                    if (flag[0] == "name") {
-                        name = flag[1];
-                    }else if (flag[0] == "mod") {
-                        modify = flag[1];
-                    }else if (flag[0] == "save") {
+                    if (flag[0] == "name") name = flag[1];
+                    else if (flag[0] == "mod") modify = flag[1];
+
+                    else if (flag[0] == "save") {
                         modifyType type = ADD;
                         auto mods = util::split(modify,'|');
 
@@ -438,6 +439,10 @@ namespace data {
                         else if (mods[1]=="meleeRes") statId = meleeRes;
                         else if (mods[1]=="projectileRes") statId = projectileRes;
                         else if (mods[1]=="weaponRes") statId = weaponRes;
+                        else if (mods[1]=="move") statId = move;
+
+                        std::transform(name.begin(), name.end(), name.begin(),
+                        [](unsigned char c){ return std::tolower(c); });
 
                         Modification modification{mods[2], statId,type};
 
@@ -449,10 +454,95 @@ namespace data {
                                   return a.id < b.id;
                               });
 
+            ups.close();
+
+            ups = std::ifstream("../__dat/upgradeSets.txt");
+            if (!ups.is_open()) {
+                std::cout<<"problem loading ../__dat/upgradeSets.txt"<<std::endl;
+            }
+            else {
+                std::string line;
+
+                std::string name;
+
+                std::string upgradeses;
+
+                std::string archetype;
+
+                std::string points;
+
+                while (std::getline(ups,line)) {
+                    //separate flag from data on each line
+                    std::vector<std::string> flag = util::split(line, ':');
+
+                    //set flag[0] to lowercase
+                    std::transform(flag[0].begin(), flag[0] .end(), flag[0].begin(),
+                        [](unsigned char c){ return std::tolower(c); });
+
+                    if (flag[0] == "name") name = flag[1];
+                    if (flag[0] == "upgrades") upgradeses = flag[1];
+                    if (flag[0] == "archetype") archetype = flag[1];
+                    if (flag[0] == "points") points = flag[1];
+
+                    if (flag[0] == "save") {
+                        std::vector<int> upgr;
+                        std::vector<int> applyNum;
+
+                        auto UP = util::split(upgradeses,' ');
+                        for (auto grade: UP) {
+                            auto parts = util::split(grade,'x');
+
+
+                            applyNum.push_back(std::stoi(parts[0]));
+
+                            std::transform(parts[1].begin(), parts[1].end(), parts[1].begin(),
+                        [](unsigned char c){ return std::tolower(c); });
+
+                            auto it = std::ranges::lower_bound(upgrades, parts[1], {}, &Upgrade::id);
+
+                            if (it != upgrades.end() && it->id == parts[1]) {
+                                upgr.push_back(std::distance(upgrades.begin(), it));
+                            } else {
+                                upgr.push_back(-1); // Or handle the missing upgrade error
+                            }
+                        }
+
+
+                        int pointsUsed =std::stoi(points);
+
+
+                        std::array<int,3> archetypePoints = {0,0,0};
+
+
+                        auto archp = util::split(archetype,',');
+                        for (int i = 0; i<3 && i<archp.size(); i++) archetypePoints[i] = std::stoi(archp[i]);
+
+
+                        std::transform(name.begin(), name.end(), name.begin(),
+                        [](unsigned char c){ return std::tolower(c); });
+
+                        upgradeSets.emplace_back(name, upgr, applyNum, pointsUsed, archetypePoints);
+                    }
+
+                }
+            }
+            ups.close();
+
             for (auto upgrade : upgrades) {
                 std::cout<<" "<<upgrade.id;
             }
             std::cout<<std::endl;
+        }
+
+        UpgradeSet * getSet(std::string id) {
+            std::transform(id.begin(), id.end(), id.begin(),
+                        [](unsigned char c){ return std::tolower(c); });
+            for (int i = 0; i < upgradeSets.size(); i++) {
+                if (id == upgradeSets[i].id) {
+                    return &upgradeSets[i];
+                }
+            }
+            return nullptr;
         }
     };
     //modifies stats in a fighterBuilder
@@ -503,17 +593,27 @@ namespace data {
         };
         std::array<double, 36> baseStats;
         std::array<double, 36> buildStats;
-        std::vector<UpgradeSet> upgrades;
+        std::vector<UpgradeSet*> upgrades;
         std::vector<std::string> baseMoves;
         std::vector<std::string> moveFiles;
 
-        FighterBuilder(std::array<double, 36> bsts, std::vector<std::string> moves) {
-            for (int i = 0; i < 36; i++) {
-                baseStats[i] = bsts[i];
-                buildStats[i] = bsts[i];
+        FighterBuilder(std::vector<std::string> upgradeses, UpgradeHandler & uh) {
+            for (int i = 0; i<defaultStats.size(); i++) buildStats[i] = defaultStats[i];
+            setBaseMoves();
+            for (int i = 0; i<baseMoves.size(); i++) moveFiles.push_back(baseMoves[i]);
+
+            for (auto upgrade : upgradeses) {
+                auto ptr = uh.getSet(upgrade);
+                std::cout<<ptr<<std::endl;
+                if (ptr!=nullptr) {
+                    this->upgrades.push_back(ptr);
+                }
             }
-            for (auto move : moves) {
-                moveFiles.push_back(move);
+            for (auto upgrade : upgrades) {
+                applyUpgrade(upgrade, uh);
+            }
+            for (auto move: moveFiles) {
+                std::cout << move << std::endl;
             }
         }
 
@@ -541,7 +641,7 @@ namespace data {
         }
 
         void setBuildStats() {
-            buildStats[maxHP] = 1000;
+            buildStats[maxHP] = 800;
             buildStats[speed] = 3;
             buildStats[airSpeed] = 4;
             buildStats[grabMult] = 1;
@@ -559,6 +659,30 @@ namespace data {
                 buildStats[i] = 0;
             }
         }
+
+        void applyUpgrade(UpgradeSet * up, UpgradeHandler & uh) {
+            for (auto upgrade : up->upgrades) {
+                auto statType = uh.upgrades[upgrade].upgradeData.stat;
+                auto mod = uh.upgrades[upgrade].upgradeData.mod;
+                std::cout<<statType<<": "<<mod<<std::endl;
+                switch (statType) {
+                    case move:
+                        moveFiles.push_back(mod);
+                        break;
+                    default:
+                        auto type = uh.upgrades[upgrade].upgradeData.modify;
+                        switch (type) {
+                            case ADD:
+                                buildStats[(int)statType] += std::stod(mod);
+                                break;
+                            default:
+                                break;
+                        }
+                        break;
+                }
+            }
+        }
+
     };
 
 

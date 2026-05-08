@@ -355,7 +355,7 @@ namespace game {
             std::cout<<"loading font: pixelfont.ttf"<<std::endl;
             font.loadFromFile("../__dat/pixelfont.ttf");
             std::cout<<"pixelfont.ttf: complete"<<std::endl;
-            std::cout<<"finished loading game";
+            std::cout<<"finished loading game"<<std::endl;
         }
 
         //removes a key from the set of int tags
@@ -1552,7 +1552,9 @@ int main() {
     game::GameState* gs = new game::MenuState("mainMenu");//game::MenuState("mainMenu");
     gs->enter(&game::track);
 
-    //data::upgradeHandler uH = data::upgradeHandler();
+    data::UpgradeHandler uH = data::UpgradeHandler();
+    data::FighterBuilder fb({"5a1a","hpup","2a1b"},uH);
+
 
 
 
